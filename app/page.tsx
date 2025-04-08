@@ -17,6 +17,20 @@ export default function Home() {
     store.loadConversations();
   }, []);
 
+  // Add polling for messages when conversation changes
+  useEffect(() => {
+    if (!store.currentConversationId) return;
+    
+    console.log('Starting polling for conversation:', store.currentConversationId);
+    const stopPolling = store.startPollingMessages(store.currentConversationId);
+    
+    // Clean up polling on unmount or when conversation changes
+    return () => {
+      console.log('Stopping polling');
+      stopPolling();
+    };
+  }, [store.currentConversationId]);
+
   const handleVoiceTranscript = (transcript: string) => {
     console.log('Voice transcript:', transcript);
     store.sendMessage(transcript);

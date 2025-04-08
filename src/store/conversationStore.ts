@@ -27,6 +27,7 @@ export interface ConversationState {
   sendAgentParameters: (agentId: string, parameters: Record<string, any>) => Promise<void>;
   clearParametersNeeded: () => void;
   setError: (error: string | null) => void;
+  startPollingMessages: (conversationId: string) => () => void;
 }
 
 export const useConversationStore = create<ConversationState>((set, get) => ({
@@ -183,7 +184,39 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     try {
       console.log(`Sending message to conversation ${conversationId}:`, content);
       
-      // Send message to API
+      // Try the direct backend approach first to bypass Next.js API routes
+      try {
+        console.log('Trying direct backend connection first...');
+        const directResponse = await apiClient.sendMessageDirect(conversationId, content);
+        console.log('Direct backend connection successful!', directResponse);
+        
+        // Handle response
+        if (directResponse.type === 'parameters_needed') {
+          // We need additional parameters
+          set({ 
+            parametersNeeded: directResponse.data,
+            isProcessing: false
+          });
+        } else if (directResponse.type === 'message') {
+          // We received a response message
+          const assistantMessage: Message = directResponse.data;
+          
+          set(state => ({
+            messages: [...state.messages, assistantMessage],
+            isProcessing: false
+          }));
+          
+          // Update conversation list to reflect the new message
+          await get().loadConversations();
+        }
+        
+        return; // Success! No need to try the API route
+      } catch (directError) {
+        console.error('Direct backend connection failed:', directError);
+        console.log('Falling back to API route...');
+      }
+      
+      // Try the regular API route as fallback
       const response = await apiClient.sendMessage(conversationId, content);
       
       // Handle different response types
@@ -254,5 +287,29 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
 
   setError: (error: string | null) => {
     set({ error });
-  }
+  },
+
+  // Add polling functionality to refresh messages periodically
+  startPollingMessages: (conversationId: string) => {
+    const intervalId = setInterval(async () => {
+      // Only poll if we have a current conversation
+      if (!conversationId) return;
+      
+      try {
+        console.log(`Polling for messages in conversation ${conversationId}...`);
+        const messages = await apiClient.getMessages(conversationId);
+        
+        // Update state with new messages
+        if (messages && messages.length > 0) {
+          console.log(`Got ${messages.length} messages from polling`);
+          set({ messages });
+        }
+      } catch (error) {
+        console.error('Error polling for messages:', error);
+      }
+    }, 2000); // Poll every 2 seconds
+    
+    // Store the interval ID so we can clear it later
+    return () => clearInterval(intervalId);
+  },
 })); 
