@@ -291,25 +291,50 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
 
   // Add polling functionality to refresh messages periodically
   startPollingMessages: (conversationId: string) => {
+    // Get the current messages to compare against
+    const currentMessages = get().messages;
+    const lastMessageId = currentMessages.length > 0 && currentMessages[currentMessages.length - 1].id;
+    
+    console.log('Starting polling with last message ID:', lastMessageId);
+    
     const intervalId = setInterval(async () => {
-      // Only poll if we have a current conversation
-      if (!conversationId) return;
+      // Only poll if we have a current conversation and no processing is happening
+      if (!conversationId || get().isProcessing) return;
       
       try {
-        console.log(`Polling for messages in conversation ${conversationId}...`);
-        const messages = await apiClient.getMessages(conversationId);
+        const newMessages = await apiClient.getMessages(conversationId);
         
-        // Update state with new messages
-        if (messages && messages.length > 0) {
-          console.log(`Got ${messages.length} messages from polling`);
-          set({ messages });
+        // Only update if we have new messages (more messages or different last message)
+        const messagesChanged = 
+          newMessages.length !== get().messages.length || 
+          (newMessages.length > 0 && get().messages.length > 0 && 
+           newMessages[newMessages.length - 1].id !== get().messages[get().messages.length - 1].id);
+        
+        if (messagesChanged) {
+          console.log('New messages detected, updating state');
+          
+          // Process the timestamps to make sure they're numbers
+          const processedMessages = newMessages.map(msg => ({
+            ...msg,
+            // Ensure timestamp is a number
+            timestamp: typeof msg.timestamp === 'number' ? msg.timestamp : 
+                       (msg.timestamp ? new Date(msg.timestamp).getTime() : Date.now())
+          }));
+          
+          set({ 
+            messages: processedMessages,
+            isProcessing: false // Make sure spinner stops
+          });
         }
       } catch (error) {
         console.error('Error polling for messages:', error);
       }
-    }, 2000); // Poll every 2 seconds
+    }, 3000); // Poll every 3 seconds instead of 2
     
     // Store the interval ID so we can clear it later
-    return () => clearInterval(intervalId);
+    return () => {
+      console.log('Clearing polling interval');
+      clearInterval(intervalId);
+    };
   },
 })); 

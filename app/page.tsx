@@ -19,7 +19,7 @@ export default function Home() {
 
   // Add polling for messages when conversation changes
   useEffect(() => {
-    if (!store.currentConversationId) return;
+    if (!store.currentConversationId || store.isProcessing) return;
     
     console.log('Starting polling for conversation:', store.currentConversationId);
     const stopPolling = store.startPollingMessages(store.currentConversationId);
@@ -29,7 +29,7 @@ export default function Home() {
       console.log('Stopping polling');
       stopPolling();
     };
-  }, [store.currentConversationId]);
+  }, [store.currentConversationId, store.isProcessing]);
 
   const handleVoiceTranscript = (transcript: string) => {
     console.log('Voice transcript:', transcript);

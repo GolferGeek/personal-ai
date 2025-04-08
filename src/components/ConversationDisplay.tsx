@@ -9,6 +9,29 @@ interface ConversationDisplayProps {
   isLoading: boolean;
 }
 
+// Helper function to format a timestamp
+const formatTimestamp = (timestamp: number | string | Date | undefined): string => {
+  if (!timestamp) return '';
+  
+  try {
+    // Convert to date if it's a number or string
+    const date = typeof timestamp === 'number' || typeof timestamp === 'string' 
+      ? new Date(timestamp) 
+      : timestamp;
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return ''; // Return empty string for invalid dates
+    }
+    
+    // Format the time
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (error) {
+    console.error('Error formatting timestamp:', error);
+    return '';
+  }
+};
+
 const ConversationDisplay: React.FC<ConversationDisplayProps> = ({ 
   messages, 
   isLoading 
@@ -42,7 +65,7 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
         <>
           {messages.map((message, index) => (
             <Box 
-              key={index}
+              key={message.id || index}
               sx={{ 
                 mb: 2, 
                 alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
@@ -60,9 +83,11 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
                 <Typography variant="body1">
                   {message.content}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  {new Date(message.timestamp).toLocaleTimeString()}
-                </Typography>
+                {message.timestamp && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                    {formatTimestamp(message.timestamp)}
+                  </Typography>
+                )}
               </Paper>
             </Box>
           ))}
