@@ -53,7 +53,13 @@ export class McpService implements OnModuleInit {
         'get_fixed_data', 
         'Returns a fixed predefined string.',
         async () => {
-          this.logger.log('Handling MCP tool request: get_fixed_data');
+          this.logger.log('📡 MCP TOOL CALLED: get_fixed_data');
+          this.logger.log('🔄 Processing MCP tool request...');
+          
+          // Simulate some processing time
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          this.logger.log('✅ MCP tool executed successfully');
           
           return {
             content: [

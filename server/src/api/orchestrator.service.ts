@@ -135,39 +135,47 @@ export class OrchestratorService {
    * Handles the "reverse" command.
    */
   private async handleReverseCommand(query: string): Promise<OrchestratorResponse> {
-    this.logger.log('Handling reverse command');
+    this.logger.log('🔄 Handling reverse command with query: ' + query);
     
     // Get the reverseString agent
     const agent = this.agentRegistryService.getAgent('reverseString');
     
     if (!agent) {
+      this.logger.error('❌ Reverse string agent not found');
       return {
         type: 'error',
         message: 'The reverse string agent is not available.'
       };
     }
     
+    this.logger.log('✅ Found reverseString agent:', agent.id);
+    
     // Try to extract text after "reverse" keyword
     const match = query.match(/reverse\s+(.*)/i);
     if (match && match[1]) {
       // Extract the text to reverse
       const textToReverse = match[1].trim();
+      this.logger.log(`🔍 Extracted text to reverse: "${textToReverse}"`);
       
       // Execute the agent with the extracted text
       try {
+        this.logger.log('🚀 Executing reverseString agent...');
         const result = await agent.execute({ text: textToReverse });
+        this.logger.log(`✅ Agent execution successful: ${JSON.stringify(result)}`);
+        
         return {
           type: 'success',
           message: `Reversed text: ${result.result}`
         };
       } catch (error) {
-        this.logger.error('Error executing reverseString agent:', error);
+        this.logger.error('❌ Error executing reverseString agent:', error);
         return {
           type: 'error',
           message: `Failed to reverse text: ${error.message}`
         };
       }
     } else {
+      this.logger.log('⚠️ No text to reverse found in query');
       // No text to reverse, return needs_parameters response
       return {
         type: 'needs_parameters',
@@ -181,10 +189,11 @@ export class OrchestratorService {
    * Handles the "mcp data" command using MCP Client.
    */
   private async handleMcpDataCommand(): Promise<OrchestratorResponse> {
-    this.logger.log('Handling MCP data command');
+    this.logger.log('🌐 Handling MCP data command');
     
     try {
       // For Phase 1, we can stub the MCP response to focus on UI flow
+      this.logger.log('📊 Returning stubbed MCP data response');
       return {
         type: 'success',
         message: 'Success! This is the fixed data from the MCP tool.'
@@ -193,7 +202,7 @@ export class OrchestratorService {
       // The actual MCP implementation will be added in a later phase
       // We've decided to stub this since the MCP import is causing issues
     } catch (error) {
-      this.logger.error('Error calling MCP tool:', error);
+      this.logger.error('❌ Error calling MCP tool:', error);
       return {
         type: 'error',
         message: `Failed to get MCP data: ${error.message}`
