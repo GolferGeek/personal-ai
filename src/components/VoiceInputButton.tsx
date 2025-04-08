@@ -1,47 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Box, 
   IconButton, 
   TextField, 
   Paper, 
   InputAdornment,
-  CircularProgress
+  CircularProgress,
+  Typography
 } from '@mui/material';
-import MicIcon from '@mui/icons-material/Mic';
 import SendIcon from '@mui/icons-material/Send';
-import StopIcon from '@mui/icons-material/Stop';
-
-// Define SpeechRecognition interface for browser compatibility
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-  resultIndex: number;
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start(): void;
-  stop(): void;
-  abort(): void;
-  onresult: (event: SpeechRecognitionEvent) => void;
-  onerror: (event: SpeechRecognitionErrorEvent) => void;
-  onend: () => void;
-}
-
-// Add global types for SpeechRecognition
-declare global {
-  interface Window {
-    SpeechRecognition?: new () => SpeechRecognition;
-    webkitSpeechRecognition?: new () => SpeechRecognition;
-  }
-}
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 interface VoiceInputButtonProps {
   onTranscript: (transcript: string) => void;
@@ -54,82 +24,13 @@ const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
   onError,
   isLoading
 }) => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [input, setInput] = useState('');
   const textFieldRef = useRef<HTMLInputElement>(null);
 
-  // Initialize speech recognition
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-      
-      if (!SpeechRecognitionAPI) {
-        onError('Speech recognition is not supported in this browser');
-        return;
-      }
-      
-      const recognitionInstance = new SpeechRecognitionAPI();
-      
-      recognitionInstance.continuous = true;
-      recognitionInstance.interimResults = true;
-      recognitionInstance.lang = 'en-US';
-      
-      recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            finalTranscript += result[0].transcript;
-          }
-        }
-        
-        if (finalTranscript) {
-          setTranscript((prevTranscript) => 
-            prevTranscript ? `${prevTranscript} ${finalTranscript}` : finalTranscript
-          );
-        }
-      };
-      
-      recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error('Speech recognition error', event.error);
-        onError(`Speech recognition error: ${event.error}`);
-        setIsRecording(false);
-      };
-      
-      recognitionInstance.onend = () => {
-        setIsRecording(false);
-      };
-      
-      setRecognition(recognitionInstance);
-    }
-    
-    return () => {
-      if (recognition) {
-        recognition.abort();
-      }
-    };
-  }, [onError]);
-
-  const startRecording = () => {
-    if (recognition && !isRecording && !isLoading) {
-      setIsRecording(true);
-      setTranscript('');
-      recognition.start();
-    }
-  };
-
-  const stopRecording = () => {
-    if (recognition && isRecording) {
-      recognition.stop();
-      setIsRecording(false);
-    }
-  };
-
   const handleSendMessage = () => {
-    if (transcript.trim() && !isLoading) {
-      onTranscript(transcript.trim());
-      setTranscript('');
+    if (input.trim() && !isLoading) {
+      onTranscript(input.trim());
+      setInput('');
     }
   };
 
@@ -140,65 +41,77 @@ const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
     }
   };
 
+  // Focus the text field on mount
+  React.useEffect(() => {
+    if (textFieldRef.current) {
+      textFieldRef.current.focus();
+    }
+  }, []);
+
   return (
-    <Paper
-      elevation={2}
-      component="form"
-      sx={{
-        p: '2px 4px',
-        display: 'flex',
-        alignItems: 'center',
-        width: '100%',
-      }}
-    >
-      <TextField
-        fullWidth
-        multiline
-        maxRows={4}
-        value={transcript}
-        onChange={(e) => setTranscript(e.target.value)}
-        onKeyDown={handleKeyDown}
-        disabled={isLoading}
-        placeholder={isRecording ? "Listening..." : "Type a message or press microphone to speak..."}
-        inputRef={textFieldRef}
-        InputProps={{
-          disableUnderline: true,
-          endAdornment: isLoading && (
-            <InputAdornment position="end">
-              <CircularProgress size={24} />
-            </InputAdornment>
-          ),
-        }}
-        variant="standard"
+    <Box>
+      <Paper
+        elevation={2}
+        component="form"
         sx={{
-          ml: 1,
-          flex: 1,
-          '& .MuiInputBase-input': {
-            py: 1.5,
-          },
+          p: '2px 4px',
+          display: 'flex',
+          alignItems: 'center',
+          width: '100%',
+          position: 'relative',
         }}
-      />
-      
-      <IconButton 
-        color={isRecording ? "error" : "default"}
-        onClick={isRecording ? stopRecording : startRecording}
-        disabled={isLoading}
-        aria-label={isRecording ? "Stop recording" : "Start microphone"}
-        sx={{ p: '10px' }}
       >
-        {isRecording ? <StopIcon /> : <MicIcon />}
-      </IconButton>
+        <TextField
+          fullWidth
+          multiline
+          maxRows={4}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={isLoading}
+          placeholder="Type or use your system's voice dictation (shortcut differs by OS)..."
+          inputRef={textFieldRef}
+          InputProps={{
+            disableUnderline: true,
+            endAdornment: isLoading && (
+              <InputAdornment position="end">
+                <CircularProgress size={24} />
+              </InputAdornment>
+            ),
+          }}
+          variant="standard"
+          sx={{
+            ml: 1,
+            flex: 1,
+            '& .MuiInputBase-input': {
+              py: 1.5,
+            },
+          }}
+        />
+        
+        <IconButton 
+          color="primary" 
+          sx={{ p: '10px' }}
+          onClick={handleSendMessage}
+          disabled={!input.trim() || isLoading}
+          aria-label="Send message"
+        >
+          <SendIcon />
+        </IconButton>
+      </Paper>
       
-      <IconButton 
-        color="primary" 
-        sx={{ p: '10px' }}
-        onClick={handleSendMessage}
-        disabled={!transcript.trim() || isLoading}
-        aria-label="Send message"
+      <Typography 
+        variant="caption" 
+        color="text.secondary"
+        display="flex"
+        alignItems="center"
+        sx={{ mt: 0.5, ml: 1 }}
       >
-        <SendIcon />
-      </IconButton>
-    </Paper>
+        <InfoOutlinedIcon fontSize="inherit" sx={{ mr: 0.5 }} />
+        Use your system's voice dictation: 
+        macOS (⌘+⌃+Space), Windows (Win+H), iOS (mic key), Android (mic key)
+      </Typography>
+    </Box>
   );
 };
 
