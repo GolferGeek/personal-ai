@@ -19,7 +19,7 @@ export interface ConversationState {
   isProcessing: boolean;
   
   // Actions
-  createConversation: () => void;
+  createConversation: () => Promise<string | null>;
   selectConversation: (id: string) => void;
   loadConversations: () => Promise<void>;
   loadMessages: (conversationId: string) => Promise<void>;
@@ -45,21 +45,28 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   // Actions
   createConversation: async () => {
     try {
+      set({ isProcessing: true });
+      
+      console.log('Creating new conversation...');
       const newConversation = await apiClient.createConversation();
+      console.log('Conversation created successfully:', newConversation);
       
       // Add to conversations and select it
       set(state => ({ 
         conversations: [newConversation, ...state.conversations],
         currentConversationId: newConversation.id,
-        messages: [] 
+        messages: [],
+        isProcessing: false
       }));
       
       return newConversation.id;
     } catch (error) {
       console.error('Error creating conversation:', error);
       set({ 
-        error: error instanceof Error ? error.message : 'Failed to create conversation'
+        error: error instanceof Error ? error.message : 'Failed to create conversation',
+        isProcessing: false
       });
+      return null;
     }
   },
 
@@ -81,19 +88,40 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   },
 
   loadConversations: async () => {
-    set({ isLoadingConversations: true });
+    set({ isLoadingConversations: true, error: null });
     
     try {
+      console.log('Loading conversations...');
       const conversations = await apiClient.getConversations();
+      console.log('Conversations loaded:', conversations);
+      
       set({ conversations });
       
       // If there are conversations and none is selected, select the first one
       if (conversations.length > 0 && !get().currentConversationId) {
+        console.log('Auto-selecting first conversation:', conversations[0].id);
         get().selectConversation(conversations[0].id);
+      } else if (conversations.length === 0) {
+        // Create a new conversation if none exist
+        console.log('No conversations found, creating new conversation');
+        get().createConversation()
+          .then(newId => {
+            if (newId) {
+              console.log('Created new conversation:', newId);
+            } else {
+              console.error('Failed to create new conversation');
+            }
+          })
+          .catch(err => {
+            console.error('Error creating conversation:', err);
+          });
       }
     } catch (error) {
       console.error('Error loading conversations:', error);
-      set({ error: 'Failed to load conversations' });
+      set({ 
+        error: 'Failed to load conversations',
+        isLoadingConversations: false
+      });
     } finally {
       set({ isLoadingConversations: false });
     }
@@ -113,12 +141,32 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     // Clear any previous errors
     set({ error: null });
     
-    // If no conversation is selected, create a new one
-    if (!get().currentConversationId) {
-      await get().createConversation();
+    // If no conversation is selected, create a new one first
+    let conversationId = get().currentConversationId;
+    if (!conversationId) {
+      console.log('No conversation selected, creating new one before sending message');
+      
+      try {
+        // Create a new conversation first
+        const newId = await get().createConversation();
+        if (!newId) {
+          set({ 
+            error: 'Failed to create a conversation before sending message',
+            isProcessing: false
+          });
+          return;
+        }
+        
+        conversationId = newId;
+        console.log('Created new conversation for message:', conversationId);
+      } catch (error) {
+        set({ 
+          error: 'Failed to create a conversation before sending message',
+          isProcessing: false
+        });
+        return;
+      }
     }
-    
-    const conversationId = get().currentConversationId!;
     
     // Add user message to local state immediately
     const userMessage: Message = {
@@ -133,6 +181,8 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     }));
     
     try {
+      console.log(`Sending message to conversation ${conversationId}:`, content);
+      
       // Send message to API
       const response = await apiClient.sendMessage(conversationId, content);
       

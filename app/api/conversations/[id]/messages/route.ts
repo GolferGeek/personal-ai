@@ -64,28 +64,69 @@ export async function POST(
     const params = await context.params;
     const id = params.id;
     
-    const body = await req.json();
     const headers = getForwardedHeaders(req);
     
-    // Log the request for debugging
-    console.log(`POST request to /api/conversations/${id}/messages`, { 
-      body, 
-      headers: Object.fromEntries(Object.entries(headers))
+    // First check if the conversation exists
+    console.log(`Verifying conversation exists: ${id}`);
+    const checkResponse = await fetch(`${BACKEND_URL}/api/conversations/${id}`, {
+      headers
     });
     
-    // Ensure the message payload matches what the backend expects
-    // The backend expects an AddMessageDto with content and optional role
+    if (!checkResponse.ok) {
+      console.error(`Conversation ${id} not found or not accessible`);
+      
+      // Try to get error details
+      try {
+        const errorText = await checkResponse.text();
+        console.error('Conversation check error details:', errorText);
+      } catch (e) {
+        console.error('Could not read error details from conversation check');
+      }
+      
+      return NextResponse.json(
+        { error: 'Conversation not found or not accessible. Please create a new conversation.' },
+        { status: 404 }
+      );
+    }
+    
+    console.log(`Conversation ${id} exists, proceeding with message`);
+    
+    // Get the raw body as text for debugging
+    const rawBodyClone = req.clone();
+    const rawBody = await rawBodyClone.text();
+    console.log(`Raw request body to messages endpoint: ${rawBody}`);
+    
+    // Parse the JSON
+    const body = await req.json();
+    
+    // Log the request details
+    console.log('Message request body:', body);
+    
+    // Create a simple, clean payload
     const messagePayload = {
-      content: body.content,
-      role: body.role || 'user'
+      content: String(body.content || '').trim(),
+      role: 'user'
     };
     
-    console.log('Sending message payload:', messagePayload);
+    // Validate content
+    if (!messagePayload.content) {
+      console.error('Message content is empty or missing');
+      return NextResponse.json(
+        { error: 'Message content is required and must be a non-empty string' },
+        { status: 400 }
+      );
+    }
     
+    console.log('Sending message payload to backend:', messagePayload);
+    
+    // Send the message to the backend
     const response = await fetch(`${BACKEND_URL}/api/conversations/${id}/messages`, {
       method: 'POST',
-      headers,
-      body: JSON.stringify(messagePayload),
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(messagePayload)
     });
     
     if (!response.ok) {
@@ -106,9 +147,11 @@ export async function POST(
     }
     
     const data = await response.json();
+    console.log('Success response from backend:', data);
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error proxying to messages endpoint:', error);
+    console.error('Error proxying to messages endpoint:', error instanceof Error ? error.message : String(error));
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json(
       { error: 'Failed to connect to backend service' },
       { status: 500 }

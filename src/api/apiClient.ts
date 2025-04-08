@@ -107,20 +107,66 @@ const apiClient = {
   
   // Send a new message
   async sendMessage(conversationId: string, content: string): Promise<Response> {
+    if (!conversationId) {
+      console.error('Cannot send message: No conversation ID provided');
+      throw new Error('No conversation ID provided');
+    }
+    
+    // Validate content
+    if (!content || content.trim() === '') {
+      throw new Error('Message content cannot be empty');
+    }
+    
+    // Create the message payload
+    const messagePayload = {
+      content: content.trim(),
+      role: 'user'
+    };
+    
+    console.log('Sending message to API:', {
+      url: `/api/conversations/${conversationId}/messages`,
+      payload: messagePayload
+    });
+    
+    // Get headers with user ID
+    const headers = getHeaders();
+    console.log('Using headers for message:', headers);
+    
     const response = await fetch(`/api/conversations/${conversationId}/messages`, {
       method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({
-        content: content,
-        role: 'user'
-      })
+      headers,
+      body: JSON.stringify(messagePayload)
     });
     
     if (!response.ok) {
+      console.error('API error response:', {
+        status: response.status,
+        statusText: response.statusText
+      });
+      
+      // Try to get error details
+      try {
+        const errorData = await response.json();
+        console.error('Error details:', errorData);
+        
+        // If conversation not found, try to create a new one
+        if (response.status === 404 && errorData.error && errorData.error.includes('Conversation not found')) {
+          console.log('Conversation not found, creating new conversation...');
+          const newConversation = await this.createConversation();
+          
+          // Try sending to the new conversation
+          return this.sendMessage(newConversation.id, content);
+        }
+      } catch (e) {
+        console.error('Could not parse error response');
+      }
+      
       throw new Error(`Failed to send message: ${response.statusText}`);
     }
     
-    return response.json();
+    const data = await response.json();
+    console.log('API success response:', data);
+    return data;
   },
   
   // Send parameters to an agent
@@ -146,17 +192,19 @@ const apiClient = {
   async createConversation(title?: string): Promise<Conversation> {
     const payload = { title: title || 'New Conversation' };
     
-    // Log the payload for debugging
     console.log('Creating conversation with payload:', payload);
+    
+    // Ensure we have proper headers, especially user ID
+    const headers = getHeaders();
+    console.log('Using headers for conversation creation:', headers);
     
     const response = await fetch('/api/conversations', {
       method: 'POST',
-      headers: getHeaders(),
+      headers,
       body: JSON.stringify(payload)
     });
     
     if (!response.ok) {
-      // Log the error response for debugging
       console.error('Failed to create conversation:', {
         status: response.status,
         statusText: response.statusText
@@ -173,7 +221,9 @@ const apiClient = {
       throw new Error(`Failed to create conversation: ${response.statusText}`);
     }
     
-    return response.json();
+    const conversation = await response.json();
+    console.log('Successfully created conversation:', conversation);
+    return conversation;
   },
   
   // Delete a conversation
