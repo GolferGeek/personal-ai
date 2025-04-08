@@ -1,0 +1,24 @@
+{
+  "name": "@personal-ai/config-eslint",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "files": [
+    "base.js",
+    "nextjs.js",
+    "nestjs.js"
+  ],
+  "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.3.1",
+    "@typescript-eslint/parser": "^7.3.1",
+    "eslint": "^9",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.34.1",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-config-next": "15.2.4",
+    "eslint-plugin-jsx-a11y": "^6.8.0"
+  },
+  "devDependencies": {
+    "@nestjs/eslint-plugin": "^4.0.0"
+  }
+} 
