@@ -37,6 +37,23 @@ function getHeaders(): HeadersInit {
   };
 }
 
+/**
+ * Debug utility for logging API responses
+ */
+function debugApiResponse(source: string, response: any) {
+  console.group(`🔍 API Response Debug (${source})`);
+  console.log('Response type:', response?.type);
+  console.log('Response structure:', response);
+  
+  if (response?.data && typeof response.data === 'object') {
+    console.log('Message data:', response.data);
+    console.log('Message content:', response.data.content);
+    console.log('Message role:', response.data.role);
+  }
+  
+  console.groupEnd();
+}
+
 // API client for conversation-related endpoints
 const apiClient = {
   // Fetch all conversations
@@ -123,8 +140,8 @@ const apiClient = {
       role: 'user'
     };
     
-    console.log('Sending message to API:', {
-      url: `/api/conversations/${conversationId}/messages`,
+    console.log('Sending message to API sync endpoint:', {
+      url: `/api/conversations/${conversationId}/messages/sync`,
       payload: messagePayload
     });
     
@@ -132,41 +149,86 @@ const apiClient = {
     const headers = getHeaders();
     console.log('Using headers for message:', headers);
     
-    const response = await fetch(`/api/conversations/${conversationId}/messages`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(messagePayload)
-    });
-    
-    if (!response.ok) {
-      console.error('API error response:', {
-        status: response.status,
-        statusText: response.statusText
+    try {
+      // Use the sync endpoint that waits for the assistant's response
+      const response = await fetch(`/api/conversations/${conversationId}/messages/sync`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(messagePayload)
       });
       
-      // Try to get error details
-      try {
-        const errorData = await response.json();
-        console.error('Error details:', errorData);
+      if (!response.ok) {
+        console.error('API error response:', {
+          status: response.status,
+          statusText: response.statusText
+        });
         
-        // If conversation not found, try to create a new one
-        if (response.status === 404 && errorData.error && errorData.error.includes('Conversation not found')) {
-          console.log('Conversation not found, creating new conversation...');
-          const newConversation = await this.createConversation();
-          
-          // Try sending to the new conversation
-          return this.sendMessage(newConversation.id, content);
-        }
-      } catch (e) {
-        console.error('Could not parse error response');
+        throw new Error(`Failed to send message: ${response.statusText}`);
       }
       
-      throw new Error(`Failed to send message: ${response.statusText}`);
+      const data = await response.json();
+      console.log('API complete response (including assistant):', data);
+      
+      // The backend returns both the user message and the assistant message
+      // We want to return the assistant message as our response
+      if (data && data.assistantMessage) {
+        return {
+          type: 'message',
+          success: true,
+          data: data.assistantMessage
+        };
+      }
+      
+      // Fall back to standard response format if assistantMessage is not present
+      return this.convertToResponseFormat(data);
+    } catch (error) {
+      console.error('Error sending message with sync endpoint:', error);
+      
+      // Fall back to the old endpoint if the sync one fails
+      console.log('Falling back to standard message endpoint...');
+      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(messagePayload)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to send message: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      return this.convertToResponseFormat(data);
+    }
+  },
+  
+  // Helper method to convert backend message to frontend response format
+  convertToResponseFormat(data: any): Response {
+    // If data already matches our Response format, return as is
+    if (data && (data.type === 'message' || data.type === 'parameters_needed')) {
+      return data;
     }
     
-    const data = await response.json();
-    console.log('API success response:', data);
-    return data;
+    // If it's a message from the backend (conversation controller)
+    if (data && data.id && data.content && data.role) {
+      return {
+        type: 'message',
+        success: true,
+        data: {
+          id: data.id,
+          content: data.content,
+          role: data.role,
+          timestamp: data.timestamp || Date.now()
+        }
+      };
+    }
+    
+    // Default case - unknown format
+    console.warn('Unknown response format:', data);
+    return {
+      type: 'message',
+      success: true,
+      data: data
+    };
   },
   
   // Send parameters to an agent
@@ -259,6 +321,74 @@ const apiClient = {
     }
     
     return response.json();
+  },
+  
+  // Send a new message - try direct backend connection
+  async sendMessageDirect(conversationId: string, content: string): Promise<Response> {
+    if (!conversationId) {
+      console.error('Cannot send message: No conversation ID provided');
+      throw new Error('No conversation ID provided');
+    }
+    
+    // Validate content
+    if (!content || content.trim() === '') {
+      throw new Error('Message content cannot be empty');
+    }
+    
+    // Create the message payload
+    const messagePayload = {
+      content: content.trim(),
+      role: 'user'
+    };
+    
+    console.log('Sending message DIRECTLY to backend:', {
+      url: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/conversations/${conversationId}/messages`,
+      payload: messagePayload
+    });
+    
+    // Get headers with user ID
+    const headers = getHeaders();
+    console.log('Using headers for direct message:', headers);
+    
+    // Try sending directly to the backend, bypassing Next.js API route
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(messagePayload)
+      });
+      
+      if (!response.ok) {
+        console.error('Direct backend error response:', {
+          status: response.status,
+          statusText: response.statusText
+        });
+        
+        // Try to get error details
+        try {
+          const errorData = await response.json();
+          console.error('Direct error details:', errorData);
+        } catch (e) {
+          console.error('Could not parse direct error response');
+        }
+        
+        throw new Error(`Failed to send message directly: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Direct success response:', data);
+      
+      // Convert backend message format to frontend format if needed
+      const responseData = this.convertToResponseFormat(data);
+      debugApiResponse('sendMessageDirect', responseData);
+      
+      return responseData;
+    } catch (error) {
+      console.error('Error sending message directly to backend:', error);
+      throw error;
+    }
   }
 };
 
