@@ -11,8 +11,20 @@ import {
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 
+/**
+ * TextInputButton Component
+ * 
+ * A text input component with a send button for submitting messages in the conversation interface.
+ * Features:
+ * - Multi-line text input with expansion capability
+ * - Send button with proper accessibility attributes
+ * - Loading state handling with visual feedback
+ * - Enter key support for quick submission (Shift+Enter for new line)
+ */
 interface TextInputButtonProps {
+  /** Whether the component is in a loading state */
   isLoading?: boolean;
+  /** Callback function triggered when a message is sent */
   onSendMessage: (text: string) => void;
 }
 
@@ -23,7 +35,10 @@ const TextInputButton: React.FC<TextInputButtonProps> = ({
   const [input, setInput] = useState('');
   const textFieldRef = useRef<HTMLInputElement>(null);
 
-  // Handle enter key in text field
+  /**
+   * Handles keyboard events in the text field
+   * Submits on Enter, allows Shift+Enter for new line
+   */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -31,7 +46,10 @@ const TextInputButton: React.FC<TextInputButtonProps> = ({
     }
   };
 
-  // Handle clicking the send button
+  /**
+   * Processes the message submission
+   * Trims whitespace and only sends non-empty messages
+   */
   const handleSendMessage = () => {
     const trimmedInput = input.trim();
     if (trimmedInput && !isLoading) {
