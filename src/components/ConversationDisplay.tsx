@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect } from 'react';
-import { Box, Paper, Typography, CircularProgress, Divider } from '@mui/material';
+import { Box, Paper, Typography, CircularProgress } from '@mui/material';
 import { Message } from '../models/conversation';
 
 interface ConversationDisplayProps {

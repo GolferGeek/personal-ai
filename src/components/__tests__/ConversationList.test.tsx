@@ -185,7 +185,7 @@ describe('ConversationList', () => {
       {
         id: 'invalid-date',
         title: 'Invalid Date',
-        lastUpdated: 'not-a-date' as any,
+        lastUpdated: 'not-a-date' as unknown as number,
         messages: []
       }
     ];
@@ -257,13 +257,14 @@ describe('ConversationList', () => {
   });
 
   test('handles empty and invalid conversation data', () => {
+    // Using a type assertion to safely test error handling with invalid data
     const problematicConversations = [
       null, // Null conversation
       undefined, // Undefined conversation
       {}, // Empty object
       { id: 'no-messages', messages: [] }, // No messages
       { messages: [{ role: 'user', content: 'No ID' }] } // No ID
-    ] as any[];
+    ] as unknown as Conversation[]; // Using unknown as intermediate step for safer casting
 
     render(
       <ConversationList
