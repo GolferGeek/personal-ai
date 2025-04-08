@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "enabled": true,
+    "include": ["rules/*.md"]
+  },
+  "editor": {
+    "formatOnSave": true,
+    "defaultFormatter": "prettier"
+  },
+  "ai": {
+    "autocomplete": {
+      "enabled": true
+    }
+  },
+  "terminal": {
+    "defaultShell": "zsh"
+  }
+} 
