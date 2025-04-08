@@ -1,0 +1,9 @@
+
+
+> @personal-ai/ui@0.1.0 test /Users/golfergeek/projects/golfergeek/personal-ai/packages/ui
+> jest "--passWithNoTests"
+
+[1m[2mDetermining test suites to run...[22m[22m[999D[K[1mNo tests found, exiting with code 0[22m
+[999D[K
+[K[1A
+[K[1A[999D[K

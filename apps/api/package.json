@@ -24,6 +24,7 @@
     "@nestjs/swagger": "^7.3.1",
     "@personal-ai/models": "0.1.0",
     "@personal-ai/utils": "0.1.0",
+    "@modelcontextprotocol/sdk": "^1.9.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "reflect-metadata": "^0.2.1",
@@ -39,7 +40,7 @@
     "@personal-ai/config-typescript": "0.1.0",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.14",
-    "@types/node": "^20.11.16",
+    "@types/node": "^20.17.30",
     "@types/supertest": "^6.0.2",
     "jest": "^29.7.0",
     "rimraf": "^5.0.5",
@@ -51,4 +52,4 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.3.3"
   }
-} 
+}

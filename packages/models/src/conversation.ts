@@ -20,13 +20,9 @@ export interface Message {
  */
 export interface Conversation {
   id: string;
-  title?: string;
+  title: string;
+  lastUpdated: string;
   messages?: Message[];
-  lastUpdated?: number;
-  userId?: string;
-  createdAt?: Date | string | number;
-  updatedAt?: Date | string | number;
-  model?: string;
 }
 
 /**
@@ -75,4 +71,14 @@ export interface UserIdentity {
   id: string;
   createdAt: Date | string;
   preferences?: Record<string, any>;
+}
+
+/**
+ * Conversation model interfaces
+ */
+
+export interface ConversationParameters {
+  id: string;
+  conversationId: string;
+  parameters: Record<string, unknown>;
 } 

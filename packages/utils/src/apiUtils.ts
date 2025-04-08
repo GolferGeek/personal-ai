@@ -55,6 +55,11 @@ export const getForwardedHeaders = (headers: Headers): Record<string, string> =>
     forwardedHeaders.cookie = headers.get('cookie') as string;
   }
   
+  // Forward user ID
+  if (headers.has('x-user-id')) {
+    forwardedHeaders['x-user-id'] = headers.get('x-user-id') as string;
+  }
+  
   // Forward content type
   if (headers.has('content-type')) {
     forwardedHeaders['content-type'] = headers.get('content-type') as string;

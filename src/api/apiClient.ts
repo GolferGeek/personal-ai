@@ -1,15 +1,5 @@
-import { Conversation, Message, ParametersNeededState } from '../models/conversation';
-import { v4 as uuidv4 } from 'uuid';
-
-// Get or create a user ID for the session
-function getUserId(): string {
-  let userId = localStorage.getItem('userId');
-  if (!userId) {
-    userId = uuidv4();
-    localStorage.setItem('userId', userId);
-  }
-  return userId;
-}
+import { Conversation, Message, ParametersNeededState, MessageRole } from '@personal-ai/models';
+import { getUserId, handleResponse } from '@personal-ai/utils';
 
 // Response types
 export interface ApiResponse {
@@ -40,15 +30,15 @@ function getHeaders(): HeadersInit {
 /**
  * Debug utility for logging API responses
  */
-function debugApiResponse(source: string, response: any) {
+function debugApiResponse(source: string, response: unknown): void {
   console.group(`🔍 API Response Debug (${source})`);
-  console.log('Response type:', response?.type);
+  console.log('Response type:', (response as any)?.type);
   console.log('Response structure:', response);
   
-  if (response?.data && typeof response.data === 'object') {
-    console.log('Message data:', response.data);
-    console.log('Message content:', response.data.content);
-    console.log('Message role:', response.data.role);
+  if ((response as any)?.data && typeof (response as any).data === 'object') {
+    console.log('Message data:', (response as any).data);
+    console.log('Message content:', (response as any).data.content);
+    console.log('Message role:', (response as any).data.role);
   }
   
   console.groupEnd();
@@ -201,41 +191,35 @@ const apiClient = {
     }
   },
   
-  // Helper method to convert backend message to frontend response format
-  convertToResponseFormat(data: any): Response {
-    // If data already matches our Response format, return as is
-    if (data && (data.type === 'message' || data.type === 'parameters_needed')) {
-      return data;
+  /**
+   * Convert any data format to a standardized Response format
+   */
+  convertToResponseFormat(data: unknown): Response {
+    if (typeof data !== 'object' || data === null) {
+      throw new Error('Invalid response data');
     }
     
-    // If it's a message from the backend (conversation controller)
-    if (data && data.id && data.content && data.role) {
-      return {
-        type: 'message',
-        success: true,
-        data: {
-          id: data.id,
-          content: data.content,
-          role: data.role,
-          timestamp: data.timestamp || Date.now()
-        }
-      };
+    const typedData = data as Record<string, unknown>;
+    
+    if (typedData.type === 'parameters_needed' && typedData.data) {
+      return data as ParametersNeededResponse;
     }
     
-    // Default case - unknown format
-    console.warn('Unknown response format:', data);
+    // Default to message response
     return {
       type: 'message',
       success: true,
-      data: data
+      data: typedData as unknown as Message
     };
   },
   
-  // Send parameters to an agent
+  /**
+   * Send parameters to an agent
+   */
   async sendParameters(
     conversationId: string, 
     agentId: string, 
-    parameters: Record<string, any>
+    parameters: Record<string, unknown>
   ): Promise<Response> {
     const response = await fetch(`/api/conversations/${conversationId}/agent-parameters`, {
       method: 'POST',

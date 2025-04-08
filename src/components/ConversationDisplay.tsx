@@ -7,6 +7,10 @@ import { Message } from '../models/conversation';
 interface ConversationDisplayProps {
   messages: Message[];
   isLoading: boolean;
+  pendingMessage: string | null;
+  sendMessage: (message: string) => Promise<any>;
+  setPendingMessage: React.Dispatch<React.SetStateAction<string | null>>;
+  setError: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 // Helper function to format a timestamp
@@ -34,7 +38,11 @@ const formatTimestamp = (timestamp: number | string | Date | undefined): string 
 
 const ConversationDisplay: React.FC<ConversationDisplayProps> = ({ 
   messages, 
-  isLoading 
+  isLoading,
+  pendingMessage,
+  sendMessage,
+  setPendingMessage,
+  setError
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -50,6 +58,27 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (pendingMessage) {
+      // Use the synchronous endpoint via the store's sendMessage function
+      sendMessage(pendingMessage).then((response) => {
+        console.log('Synchronous response received:', response);
+        
+        // Clear pending message after receiving response
+        setPendingMessage(null);
+        
+        // If we're using scroll, update the position
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }).catch((error) => {
+        console.error('Error sending message:', error);
+        setError('Failed to send message. Please try again.');
+        setPendingMessage(null);
+      });
+    }
+  }, [pendingMessage, sendMessage]);
 
   return (
     <Paper 

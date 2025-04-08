@@ -179,19 +179,24 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       
       // Handle response - make sure it exists before accessing properties
       if (apiResponse) {
-        // Type checking to satisfy TypeScript
-        const responseWithType = apiResponse as { type?: string; data?: any };
-        
-        if (responseWithType.type === 'parameters_needed') {
-          console.log('Parameters needed response received:', responseWithType.data);
+        if (apiResponse.type === 'parameters_needed') {
+          console.log('Parameters needed response received:', apiResponse.data);
           // We need additional parameters
-          set({ parametersNeeded: responseWithType.data });
-        } else if (responseWithType.type === 'message') {
-          console.log('Message response received, adding to store:', responseWithType.data);
+          set({ parametersNeeded: apiResponse.data });
+        } else if (apiResponse.type === 'message') {
+          console.log('Message response received, adding to store:', apiResponse.data);
           // Add the assistant's response to the store
-          get().addMessage(responseWithType.data);
+          get().addMessage(apiResponse.data);
         } else {
-          console.warn('Unexpected response type:', responseWithType.type);
+          // Check for the new synchronous response format that includes both messages
+          const syncResponse = apiResponse as unknown as { userMessage?: Message; assistantMessage?: Message };
+          if (syncResponse.assistantMessage) {
+            console.log('Synchronous assistant message received:', syncResponse.assistantMessage);
+            // Add the assistant's response to the store
+            get().addMessage(syncResponse.assistantMessage);
+          } else {
+            console.warn('Unexpected response format:', apiResponse);
+          }
         }
       } else {
         console.warn('No response received from API');
@@ -200,10 +205,9 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       return apiResponse;
     } catch (error) {
       console.error('Error sending message:', error);
-      set({ error: error instanceof Error ? error.message : 'Failed to process your message' });
+      set({ error: 'Failed to send message. Please try again.' });
       return null;
     } finally {
-      // Always clear the loading state regardless of success or failure
       set({ isProcessing: false });
     }
   },

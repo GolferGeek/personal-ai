@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Message } from '@personal-ai/models';
 
 // Make sure we're using the correct URL
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -87,61 +88,23 @@ export async function POST(
     const rawBody = await rawBodyClone.text();
     console.log(`Raw request body to messages endpoint: ${rawBody}`);
     
-    // Try a direct approach - construct a hardcoded message payload
-    const directPayload = {
-      content: "test direct message", // Hardcoded test message
-      role: "user"
-    };
-    
-    console.log('Trying with direct payload first:', directPayload);
-    
-    // Send test message with hardcoded content
-    const testResponse = await fetch(`${BACKEND_URL}/api/conversations/${id}/messages`, {
-      method: 'POST',
-      headers: {
-        ...headers,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(directPayload)
-    });
-    
-    // If direct payload works, we know it's an issue with the content extraction
-    if (testResponse.ok) {
-      console.log('Direct payload worked! The issue is with content extraction.');
-      const testData = await testResponse.json();
-      console.log('Test response data:', testData);
-      
-      // Return success with the test message
-      return NextResponse.json(testData);
-    } else {
-      console.log('Even direct payload failed. Detailed error:');
-      try {
-        const testErrorText = await testResponse.text();
-        console.error('Test error details:', testErrorText);
-      } catch (e) {
-        console.error('Could not read test error details');
-      }
-    }
-    
-    // Try with the actual request data
-    const jsonBody = JSON.parse(rawBody);
+    // Parse the request body
+    const jsonBody = JSON.parse(rawBody) as Partial<Message>;
     console.log('Parsed JSON body:', jsonBody);
     
     // Ensure content is a string and not empty
     const messageContent = jsonBody.content ? String(jsonBody.content).trim() : '';
     console.log('Message content:', messageContent);
-    console.log('Message content type:', typeof messageContent);
-    console.log('Content empty?', messageContent === '');
     
-    // Create a very simple payload - just plain text content
-    const messagePayload = {
+    // Create message payload
+    const messagePayload: Partial<Message> = {
       content: messageContent,
       role: 'user'
     };
     
-    console.log('Final message payload being sent:', JSON.stringify(messagePayload));
+    console.log('Message payload being sent:', JSON.stringify(messagePayload));
     
-    // Send the actual message
+    // Send the message
     const response = await fetch(`${BACKEND_URL}/api/conversations/${id}/messages`, {
       method: 'POST',
       headers: {

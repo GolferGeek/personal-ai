@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "turbo dev",
+    "devAll": "concurrently \"pnpm --filter @personal-ai/api dev\" \"pnpm --filter @personal-ai/web dev\"",
     "build": "turbo build",
     "start": "turbo start",
+    "startAll": "concurrently \"pnpm --filter @personal-ai/api start\" \"pnpm --filter @personal-ai/web start\"",
     "lint": "turbo lint",
     "test": "turbo test",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",

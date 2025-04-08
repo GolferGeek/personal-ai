@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
-import { Box, Paper, Typography, CircularProgress } from '@mui/material';
-import { Message } from '@personal-ai/models';
-import { formatTimestamp } from '@personal-ai/utils';
+"use client";
+
+import React from "react";
+import { Box, Typography, Paper, CircularProgress } from "@mui/material";
+import { Message } from "@personal-ai/models";
 
 export interface ConversationDisplayProps {
   messages: Message[];
@@ -9,103 +10,85 @@ export interface ConversationDisplayProps {
 }
 
 /**
- * Component to display conversation messages
+ * Displays a conversation with messages from the user and assistant
  */
-const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
+export const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
   messages,
   isLoading = false,
 }) => {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
+  // Scroll to bottom whenever messages change
+  React.useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
-
-  // Log for debugging
-  console.log('ConversationDisplay received messages:', messages);
-  console.log('ConversationDisplay isLoading:', isLoading);
-
-  // If no messages and not loading, show empty state
-  if (messages.length === 0 && !isLoading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          p: 2,
-        }}
-      >
-        <Typography variant="body1" color="text.secondary" align="center">
-          Start a new conversation or select an existing one
-        </Typography>
-      </Box>
-    );
-  }
-
-  // If loading, show loading indicator
-  if (isLoading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100%',
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   return (
     <Box
       sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2,
-        p: 2,
-        height: '100%',
-        overflow: 'auto',
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        overflow: "hidden",
       }}
     >
-      {messages.map((message, index) => (
-        <Box
-          key={index}
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
-            maxWidth: '80%',
-          }}
-        >
-          <Paper
-            elevation={1}
+      <Box
+        sx={{
+          flex: 1,
+          overflow: "auto",
+          padding: 2,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {messages.length === 0 ? (
+          <Box
             sx={{
-              p: 2,
-              backgroundColor: message.role === 'user' ? 'primary.light' : 'background.paper',
-              color: message.role === 'user' ? 'primary.contrastText' : 'text.primary',
-              borderRadius: 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
             }}
           >
-            <Typography variant="body1">{message.content}</Typography>
-            {message.timestamp && (
-              <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.7 }}>
-                {formatTimestamp(message.timestamp)}
-              </Typography>
-            )}
-          </Paper>
-        </Box>
-      ))}
-      <div ref={messagesEndRef} />
+            <Typography variant="body2" color="text.secondary">
+              Start a new conversation
+            </Typography>
+          </Box>
+        ) : (
+          messages.map((message) => (
+            <Box
+              key={message.id}
+              sx={{
+                mb: 2,
+                alignSelf: message.role === "user" ? "flex-end" : "flex-start",
+                maxWidth: "70%",
+              }}
+            >
+              <Paper
+                elevation={1}
+                sx={{
+                  p: 2,
+                  backgroundColor:
+                    message.role === "user" ? "#e3f2fd" : "#f5f5f5",
+                  borderRadius: 2,
+                }}
+              >
+                <Typography>{message.content}</Typography>
+              </Paper>
+            </Box>
+          ))
+        )}
+
+        {isLoading && (
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        )}
+
+        <div ref={messagesEndRef} />
+      </Box>
     </Box>
   );
 };
-
-export default ConversationDisplay; 

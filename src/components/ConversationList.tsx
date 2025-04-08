@@ -15,7 +15,8 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import ChatIcon from '@mui/icons-material/Chat';
-import { Conversation } from '../models/conversation';
+import { Conversation } from '@personal-ai/models';
+import { formatRelativeTime, getConversationTimestamp, getConversationTitle } from '@personal-ai/utils';
 
 interface ConversationListProps {
   selectedConversationId: string | null;
@@ -32,98 +33,6 @@ const ConversationList: React.FC<ConversationListProps> = ({
   conversations,
   isLoading
 }) => {
-  // Format date to relative time
-  const formatRelativeTime = (timestamp: number | string | Date): string => {
-    // Convert to timestamp if needed
-    let timeMs: number;
-    
-    try {
-      if (typeof timestamp === 'string') {
-        timeMs = new Date(timestamp).getTime();
-      } else if (timestamp instanceof Date) {
-        timeMs = timestamp.getTime();
-      } else {
-        timeMs = timestamp;
-      }
-      
-      // Handle invalid dates
-      if (isNaN(timeMs)) {
-        return 'Recently';
-      }
-      
-      const now = Date.now();
-      const diff = now - timeMs;
-      
-      const seconds = Math.floor(diff / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
-      const days = Math.floor(hours / 24);
-      
-      if (days > 0) {
-        return days === 1 ? 'Yesterday' : `${days}d ago`;
-      } else if (hours > 0) {
-        return `${hours}h ago`;
-      } else if (minutes > 0) {
-        return `${minutes}m ago`;
-      } else {
-        return 'Just now';
-      }
-    } catch {
-      // Handle any unexpected errors in date formatting
-      return 'Recently';
-    }
-  };
-
-  // Find the most relevant timestamp for a conversation
-  const getConversationTimestamp = (conversation: Conversation): number => {
-    try {
-      // Try different properties in order of preference
-      if (conversation?.lastUpdated) {
-        return conversation.lastUpdated;
-      }
-      
-      if (conversation?.updatedAt) {
-        return new Date(conversation.updatedAt).getTime();
-      }
-      
-      if (conversation?.createdAt) {
-        return new Date(conversation.createdAt).getTime();
-      }
-      
-      // Fall back to now
-      return Date.now();
-    } catch {
-      // Handle any unexpected errors
-      return Date.now();
-    }
-  };
-
-  // Generate conversation title
-  const getConversationTitle = (conversation: Conversation): string => {
-    try {
-      // If we have a title, use it
-      if (conversation?.title) {
-        return conversation.title;
-      }
-      
-      // Try to find first user message to use as title
-      if (conversation?.messages && conversation.messages.length > 0) {
-        const firstUserMessage = conversation.messages.find(m => m.role === 'user');
-        if (firstUserMessage?.content) {
-          const content = firstUserMessage.content.trim();
-          // Truncate if too long
-          return content.length > 30 ? `${content.substring(0, 30)}...` : content;
-        }
-      }
-      
-      // Default fallback
-      return 'New Conversation';
-    } catch {
-      // Handle any unexpected errors
-      return 'New Conversation';
-    }
-  };
-
   // Render empty state
   const renderEmptyState = () => (
     <Box 

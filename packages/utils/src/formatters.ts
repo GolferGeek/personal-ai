@@ -1,4 +1,4 @@
-import { Conversation } from '@personal-ai/models';
+import { Conversation } from "@personal-ai/models";
 
 /**
  * Format a timestamp into a human-readable relative time
@@ -8,41 +8,41 @@ import { Conversation } from '@personal-ai/models';
 export function formatRelativeTime(timestamp: number | string | Date): string {
   // Convert to timestamp if needed
   let timeMs: number;
-  
+
   try {
-    if (typeof timestamp === 'string') {
+    if (typeof timestamp === "string") {
       timeMs = new Date(timestamp).getTime();
     } else if (timestamp instanceof Date) {
       timeMs = timestamp.getTime();
     } else {
       timeMs = timestamp;
     }
-    
+
     // Handle invalid dates
     if (isNaN(timeMs)) {
-      return 'Recently';
+      return "Recently";
     }
-    
+
     const now = Date.now();
     const diff = now - timeMs;
-    
+
     const seconds = Math.floor(diff / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
-    
+
     if (days > 0) {
-      return days === 1 ? 'Yesterday' : `${days}d ago`;
+      return days === 1 ? "Yesterday" : `${days}d ago`;
     } else if (hours > 0) {
       return `${hours}h ago`;
     } else if (minutes > 0) {
       return `${minutes}m ago`;
     } else {
-      return 'Just now';
+      return "Just now";
     }
   } catch {
     // Handle any unexpected errors in date formatting
-    return 'Recently';
+    return "Recently";
   }
 }
 
@@ -51,25 +51,28 @@ export function formatRelativeTime(timestamp: number | string | Date): string {
  * @param timestamp - Unix timestamp in milliseconds
  * @returns Formatted date/time string
  */
-export function formatTimestamp(timestamp: number | string | Date | undefined): string {
-  if (!timestamp) return '';
-  
+export function formatTimestamp(
+  timestamp: number | string | Date | undefined
+): string {
+  if (!timestamp) return "";
+
   try {
     // Convert to date if it's a number or string
-    const date = typeof timestamp === 'number' || typeof timestamp === 'string' 
-      ? new Date(timestamp) 
-      : timestamp;
-    
+    const date =
+      typeof timestamp === "number" || typeof timestamp === "string"
+        ? new Date(timestamp)
+        : timestamp;
+
     // Check if date is valid
     if (isNaN(date.getTime())) {
-      return ''; // Return empty string for invalid dates
+      return ""; // Return empty string for invalid dates
     }
-    
+
     // Format the time
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   } catch (error) {
-    console.error('Error formatting timestamp:', error);
-    return '';
+    console.error("Error formatting timestamp:", error);
+    return "";
   }
 }
 
@@ -79,22 +82,23 @@ export function formatTimestamp(timestamp: number | string | Date | undefined): 
  * @returns Formatted date/time string
  */
 export function formatFullDateTime(timestamp: number | string | Date): string {
-  if (!timestamp) return '';
-  
+  if (!timestamp) return "";
+
   try {
-    const date = typeof timestamp === 'number' || typeof timestamp === 'string'
-      ? new Date(timestamp)
-      : timestamp;
-      
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    const date =
+      typeof timestamp === "number" || typeof timestamp === "string"
+        ? new Date(timestamp)
+        : timestamp;
+
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
-    return '';
+    return "";
   }
 }
 
@@ -118,27 +122,24 @@ export function getConversationTimestamp(conversation: Conversation): number {
   try {
     // Try different properties in order of preference
     if (conversation?.lastUpdated) {
-      return conversation.lastUpdated;
-    }
-    
-    if (conversation?.updatedAt) {
-      const updatedAt = conversation.updatedAt;
-      if (typeof updatedAt === 'string' || updatedAt instanceof Date) {
-        return new Date(updatedAt).getTime();
-      } else if (typeof updatedAt === 'number') {
-        return updatedAt;
+      if (typeof conversation.lastUpdated === "number") {
+        return conversation.lastUpdated;
+      } else if (typeof conversation.lastUpdated === "string") {
+        return new Date(conversation.lastUpdated).getTime();
       }
     }
-    
-    if (conversation?.createdAt) {
-      const createdAt = conversation.createdAt;
-      if (typeof createdAt === 'string' || createdAt instanceof Date) {
-        return new Date(createdAt).getTime();
-      } else if (typeof createdAt === 'number') {
-        return createdAt;
+
+    // If we have messages, use the latest message timestamp
+    if (conversation?.messages && conversation.messages.length > 0) {
+      const timestamps = conversation.messages
+        .filter((msg) => msg.timestamp)
+        .map((msg) => (typeof msg.timestamp === "number" ? msg.timestamp : 0));
+
+      if (timestamps.length > 0) {
+        return Math.max(...timestamps);
       }
     }
-    
+
     // Fall back to now
     return Date.now();
   } catch {
@@ -158,21 +159,23 @@ export function getConversationTitle(conversation: Conversation): string {
     if (conversation?.title) {
       return conversation.title;
     }
-    
+
     // Try to find first user message to use as title
     if (conversation?.messages && conversation.messages.length > 0) {
-      const firstUserMessage = conversation.messages.find(m => m.role === 'user');
+      const firstUserMessage = conversation.messages.find(
+        (m) => m.role === "user"
+      );
       if (firstUserMessage?.content) {
         const content = firstUserMessage.content.trim();
         // Truncate if too long
         return content.length > 30 ? `${content.substring(0, 30)}...` : content;
       }
     }
-    
+
     // Default fallback
-    return 'New Conversation';
+    return "New Conversation";
   } catch {
     // Handle any unexpected errors
-    return 'New Conversation';
+    return "New Conversation";
   }
-} 
+}

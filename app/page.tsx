@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, AppBar, Toolbar } from '@mui/material';
 import ConversationList from '../src/components/ConversationList';
 import ConversationDisplay from '../src/components/ConversationDisplay';
-import DynamicForm from '../src/components/DynamicForm';
+import { DynamicForm } from '../src/components/DynamicForm';
 import ErrorDisplay from '../src/components/ErrorDisplay';
 import TextInputButton from '../src/components/TextInputButton';
 import { useConversationStore } from '../src/store/conversationStore';
@@ -14,6 +14,8 @@ import { useConversationService } from '../src/hooks/useConversationService';
 export default function Home() {
   const store = useConversationStore();
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
   // Use React Query hook for conversations list
   const { data: conversations = [], isLoading: isLoadingConversations } = useConversations();
@@ -38,7 +40,7 @@ export default function Home() {
     else if (conversations.length === 0 && !isLoadingConversations) {
       console.log('No conversations found, creating new conversation');
       conversationService.createConversation()
-        .then(newId => {
+        .then((newId: string | null) => {
           if (newId) {
             console.log('Created new conversation:', newId);
           } else {
@@ -53,8 +55,30 @@ export default function Home() {
     console.log('Current store messages:', store.messages);
   }, [store.messages]);
 
+  // Update error state from service
+  useEffect(() => {
+    if (conversationService.error) {
+      setError(conversationService.error);
+    }
+  }, [conversationService.error]);
+
   const handleSendMessage = async (message: string) => {
-    await conversationService.sendMessage(message);
+    // Store the pending message
+    setPendingMessage(message);
+    
+    // Add the message locally first for immediate UI feedback
+    store.addLocalUserMessage(message);
+    
+    try {
+      // Send the message using the synchronous endpoint
+      const response = await conversationService.sendMessage(message);
+      console.log('Synchronous response received:', response);
+    } catch (err) {
+      setError(`Failed to send message: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      // Clear the pending message state
+      setPendingMessage(null);
+    }
   };
 
   const handleFormSubmit = async (agentId: string, formData: Record<string, any>) => {
@@ -97,8 +121,8 @@ export default function Home() {
           maxHeight: 'calc(100vh - 64px)' // 64px is the AppBar height
         }}>
           {/* Error Display */}
-          {conversationService.error && (
-            <ErrorDisplay errorMessage={conversationService.error} />
+          {error && (
+            <ErrorDisplay errorMessage={error} onDismiss={() => setError(null)} />
           )}
 
           {/* Parameters Form */}
@@ -115,14 +139,14 @@ export default function Home() {
           <Box sx={{ flexGrow: 1, overflow: 'hidden', mb: 2 }}>
             <ConversationDisplay 
               messages={store.messages} 
-              isLoading={conversationService.isProcessing}
+              isLoading={!!pendingMessage || conversationService.isProcessing}
             />
           </Box>
           
           {/* Message Input */}
           <Box sx={{ pb: 2 }}>
             <TextInputButton
-              isLoading={conversationService.isProcessing}
+              isLoading={!!pendingMessage || conversationService.isProcessing}
               onSendMessage={handleSendMessage}
             />
           </Box>

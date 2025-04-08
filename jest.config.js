@@ -1,25 +1,27 @@
-// jest.config.js
-const nextJest = require('next/jest');
-
-const createJestConfig = nextJest({
-  // Provide the path to your Next.js app to load next.config.js and .env files
-  dir: './',
-});
-
-// Add any custom config to be passed to Jest
-const customJestConfig = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testEnvironment: 'jest-environment-jsdom',
+/** @type {import('jest').Config} */
+const config = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
   moduleNameMapper: {
-    // Handle module aliases (if you use them in your Next.js config)
-    '^@/components/(.*)$': '<rootDir>/src/components/$1',
-    '^@/models/(.*)$': '<rootDir>/src/models/$1',
-    '^@/store/(.*)$': '<rootDir>/src/store/$1',
-    '^@/api/(.*)$': '<rootDir>/src/api/$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@personal-ai/(.*)$': '<rootDir>/packages/$1/src'
   },
-  // Ignore server directories and their tests
-  testPathIgnorePatterns: ['/node_modules/', '/server/', '/server_backup/'],
+  transform: {
+    '^.+\\.tsx?$': ['ts-jest', {
+      tsconfig: './tsconfig.json'
+    }]
+  },
+  setupFilesAfterEnv: ['./jest.setup.js'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/.next/',
+    '/dist/'
+  ],
+  collectCoverageFrom: [
+    'src/**/*.{ts,tsx}',
+    'app/**/*.{ts,tsx}',
+    '!**/*.d.ts'
+  ]
 };
 
-// createJestConfig is exported this way to ensure that next/jest can load the Next.js config
-module.exports = createJestConfig(customJestConfig); 
+module.exports = config; 

@@ -1,100 +1,100 @@
-import { NextRequest, NextResponse } from 'next/server';
-
-// Make sure we're using the correct URL
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-// Helper function to forward headers
-function getForwardedHeaders(req: NextRequest): HeadersInit {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-  
-  // Forward user ID if present
-  const userId = req.headers.get('x-user-id');
-  if (userId) {
-    headers['x-user-id'] = userId;
-  }
-  
-  return headers;
+// Import the types and functions we need
+// If next/server can't be found, we'll use fallback types
+interface NextResponseType {
+  json: (data: unknown, init?: ResponseInit) => Response;
 }
 
+let NextRequest: typeof Request;
+let NextResponse: NextResponseType;
+
+try {
+  const server = require('next/server');
+  NextRequest = server.NextRequest;
+  NextResponse = server.NextResponse;
+} catch (e) {
+  // Fallback definitions if next/server can't be found
+  NextRequest = Request;
+  NextResponse = {
+    json: (data: unknown, init?: ResponseInit) => new Response(JSON.stringify(data), {
+      headers: { 'content-type': 'application/json' },
+      ...init
+    })
+  };
+}
+
+import { getForwardedHeaders } from '@personal-ai/utils';
+import { generateMockResponse } from './mock';
+
+// Process.env variables for backend communication
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+const USE_MOCK_API = process.env.MOCK_API === 'true';
+
+/**
+ * POST handler for the synchronous messages endpoint
+ * 
+ * This endpoint sends a message and waits for the assistant's response
+ * before returning both messages to the client
+ */
 export async function POST(
-  req: NextRequest,
+  request: Request,
   context: { params: { id: string } }
 ) {
+  console.log('[API] Synchronous message POST for conversation:', context.params.id);
+  
   try {
-    // Properly await the entire params object
+    // Await the params to ensure we have the ID
     const params = await context.params;
-    const id = params.id;
+    const { id: conversationId } = params;
     
-    const headers = getForwardedHeaders(req);
+    // Get request payload
+    const payload = await request.json();
     
-    // First check if the conversation exists
-    console.log(`Verifying conversation exists for sync endpoint: ${id}`);
-    const checkResponse = await fetch(`${BACKEND_URL}/api/conversations/${id}`, {
-      headers
-    });
-    
-    if (!checkResponse.ok) {
-      console.error(`Conversation ${id} not found or not accessible`);
-      return NextResponse.json(
-        { error: 'Conversation not found or not accessible. Please create a new conversation.' },
-        { status: 404 }
-      );
-    }
-    
-    console.log(`Conversation ${id} exists, proceeding with synchronous message`);
-    
-    // Get the request body
-    const body = await req.json();
-    
-    // Ensure content is a string and not empty
-    const messageContent = body.content ? String(body.content).trim() : '';
-    
-    // Create the message payload
-    const messagePayload = {
-      content: messageContent,
-      role: 'user',
-      sync: true // Add a flag to indicate this should be processed synchronously
+    // Create an object with the message content and conversation ID
+    const messageData = {
+      content: payload.content,
+      role: payload.role || 'user',
+      conversationId
     };
     
-    console.log('Sync message payload being sent:', JSON.stringify(messagePayload));
+    console.log('[API] Sending message to backend:', messageData);
     
-    // Send the message to the synchronous endpoint
-    const response = await fetch(`${BACKEND_URL}/api/conversations/${id}/messages/sync`, {
+    // Use mock response if in test mode
+    if (USE_MOCK_API) {
+      console.log('[API] Using mock response for testing');
+      const mockResponse = generateMockResponse(conversationId, messageData.content);
+      return NextResponse.json(mockResponse);
+    }
+    
+    // Get forwarded headers from the request
+    const forwardedHeaders = getForwardedHeaders(request.headers);
+    
+    // Send to backend and wait for response
+    const backendResponse = await fetch(`${BACKEND_URL}/api/conversations/${conversationId}/messages/sync`, {
       method: 'POST',
       headers: {
-        ...headers,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...forwardedHeaders
       },
-      body: JSON.stringify(messagePayload)
+      body: JSON.stringify(messageData)
     });
     
-    if (!response.ok) {
-      console.error(`Error response from sync messages endpoint: ${response.status} ${response.statusText}`);
-      
-      // Try to get more error details
-      try {
-        const errorText = await response.text();
-        console.error('Error details:', errorText);
-      } catch (e) {
-        console.error('Could not read error details');
-      }
-      
+    if (!backendResponse.ok) {
+      console.error('[API] Backend error:', backendResponse.status, backendResponse.statusText);
       return NextResponse.json(
-        { error: `Backend error: ${response.statusText}` },
-        { status: response.status }
+        { error: 'Failed to process message', status: backendResponse.status },
+        { status: backendResponse.status }
       );
     }
     
-    const data = await response.json();
-    console.log('Success response from sync backend:', data);
-    return NextResponse.json(data);
+    // Get the response which should contain both the user message and assistant response
+    const responseData = await backendResponse.json();
+    console.log('[API] Successfully received assistant response');
+    
+    return NextResponse.json(responseData);
   } catch (error) {
-    console.error('Error proxying to sync messages endpoint:', error instanceof Error ? error.message : String(error));
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('[API] Error in sync message processing:', error);
     return NextResponse.json(
-      { error: 'Failed to connect to backend service' },
+      { error: 'Failed to process message', details: (error instanceof Error ? error.message : String(error)) },
       { status: 500 }
     );
   }
