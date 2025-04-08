@@ -1,140 +1,164 @@
-# V1 Implementation Plan
+# V1 Implementation Plan (Next.js Frontend + NestJS Backend)
 
-This document outlines the step-by-step implementation plan for Phase 1 (V1) of the Personal AI project, based on the specifications in `v1-plan.md`.
+This document outlines the step-by-step implementation plan for Phase 1 (V1) of the Personal AI project.
+**Architecture:** Next.js (App Router) for the frontend UI, NestJS for the backend API (including Agent/Orchestrator/MCP logic).
 
-**Goal:** Build the foundational core interaction flow (UI -> Orchestrator -> Agent/MCP -> UI) with dynamic parameter handling.
+**Goal:** Build the foundational core interaction flow (UI -> NestJS API -> UI) with dynamic parameter handling and MCP integration.
 
 ---
 
 **Phase 1: Setup, Configuration & Testing Setup**
 
-*   **Objective:** Initialize the project, install dependencies, set up basic configuration, directory structure, and the testing framework.
+*   **Objective:** Initialize projects, install dependencies, set up basic configuration, directory structure, and testing frameworks.
 *   **Tasks:**
-    1.  Run `npx create-next-app@latest --typescript --eslint .` (using App Router).
-    2.  **Testing Setup:** Install testing dependencies: `npm install --save-dev jest @types/jest @testing-library/react @testing-library/jest-dom jest-environment-jsdom ts-jest`. Configure Jest for Next.js (create `jest.config.js`, `jest.setup.js`).
-    3.  Install core dependencies: `npm install @mui/material @emotion/react @emotion/styled @mui/icons-material zustand`.
-    4.  **Install MCP SDK:** `npm install @modelcontextprotocol/sdk zod`.
-    5.  Create initial project directories: `/src/lib`, `/src/agents`, `/src/mcp` (optional, can contain server logic), `/src/config`, `/src/components`, `/src/store`.
-    6.  Create `.env.local` file. **Note:** This file is for secrets (like API keys) only and should be added to `.gitignore`. It will remain empty for now.
-    7.  Create `/src/config/llmConfig.ts`. Define basic structure for `availableModels` (can be empty or have stubs, potentially referencing key env vars like `apiKeyEnvVar: 'OPENAI_API_KEY'`). **Define default provider, model, and temperature directly in this file as exported constants.**
+    1.  **Frontend:** Run `npx create-next-app@latest --typescript --eslint .` (using App Router) in the project root.
+    2.  **Frontend Testing:** Install FE testing dependencies: `npm install --save-dev jest @types/jest @testing-library/react @testing-library/jest-dom jest-environment-jsdom ts-jest`. Configure Jest for Next.js.
+    3.  **Frontend Core:** Install FE core dependencies: `npm install @mui/material @emotion/react @emotion/styled @mui/icons-material zustand`.
+    4.  **Backend:** Initialize NestJS project: `npx --yes @nestjs/cli new server --skip-git --package-manager npm`.
+    5.  **Backend Modules:** Create initial NestJS modules: `cd server && npx nest g mo api && npx nest g mo mcp && cd ..`.
+    6.  **Backend Core:** Install BE dependencies in `/server`: `cd server && npm install @modelcontextprotocol/sdk zod && cd ..`. (Other NestJS dependencies installed by `new`).
+    7.  **Monorepo Setup (Optional but Recommended):** Consider setting up Nx or Turborepo to manage shared code (like types), dependencies, and scripts between frontend and backend.
+    8.  Create shared `/types` directory (e.g., at root or managed by monorepo tool) for common interfaces (AgentMetadata, etc.).
+    9.  Configure FE `.env.local` (for `NEXT_PUBLIC_API_URL=http://localhost:3001` - adjust port if needed). Add `.env*.local` to root `.gitignore`.
+    10. Configure BE `.env` file in `/server` (add to `/server/.gitignore`). Define CORS origins, ports, etc.
+    11. Create `/src/config/llmConfig.ts` (or move to `server/src/config`) - This config likely belongs in the backend now.
 
-**Phase 2: Core Backend Logic Structures**
+**Phase 2: Core Backend Logic Structures (NestJS)**
 
-*   **Objective:** Define interfaces and create stubbed implementations for core backend services.
+*   **Objective:** Define interfaces, create NestJS services/providers for core logic stubs.
 *   **Tasks:**
-    1.  Define Agent Metadata TypeScript interface (in `/src/lib/types.ts` or similar) including `id`, `name`, `description`, `parameters` array (`name`, `type`, `required`, `description`, `control`).
-    2.  Create `/src/lib/agentRegistry.ts` with stubbed functions: `initializeRegistry()`, `getAgent(id): AgentInfo | undefined`, `listAgents(): AgentMetadata[]`. Define `AgentInfo` and `AgentMetadata` types.
-    3.  Create `/src/lib/orchestrator.ts` with a stubbed main function: `async handleRequest(input: { type: 'text' | 'params', content: string | Record<string, any>, context?: any }): Promise<OrchestratorResponse>`. Define `OrchestratorResponse` types (e.g., `{ status: 'success', data: any }`, `{ status: 'error', error: {...} }`, `{ status: 'needs_parameters', parameters_needed: ParameterDefinition[] }`). **Note:** The MCP interaction logic will be integrated here in Phase 5.
-    4.  *(Removed task for custom MCP protocol)*
-    5.  *(Removed task for custom `mcpClient.ts`)*
+    1.  Define `AgentMetadata`, `ParameterDefinition`, `AgentInfo` in shared `/types`. Define `OrchestratorResponse` types.
+    2.  **Agent Registry Service:** Create `AgentRegistryService` (`server/src/shared/agent-registry.service.ts` or within `ApiModule`). Implement stubbed `initializeRegistry`, `getAgent`, `listAgents` methods. Use dynamic agent loading logic from previous plan. Make this service injectable.
+    3.  **Orchestrator Service:** Create `OrchestratorService` (`server/src/api/orchestrator.service.ts`). Implement stubbed `handleRequest` method. Inject `AgentRegistryService`. Define necessary DTOs (Data Transfer Objects) for input.
+    4.  **MCP Server Service:** Create `McpService` (`server/src/mcp/mcp.service.ts`). Instantiate the `McpServer` from `@modelcontextprotocol/sdk`. Define the `get_fixed_data` tool handler logic within this service. Make the `McpServer` instance available (e.g., as a provider or via the service).
 
-**Phase 3: Simple Agent & MCP Server Implementation**
+**Phase 3: Simple Agent & MCP Tool Implementation (NestJS)**
 
-*   **Objective:** Implement the specific agent, set up the MCP server using the SDK for V1 demonstration, and add unit tests.
+*   **Objective:** Implement the specific agent logic and the MCP tool handler within the NestJS backend.
 *   **Tasks:**
-    1.  Create `/src/agents/reverseStringAgent.ts`. Implement the `metadata` according to the standard (using `inputText`, `textInput` control) and the `run({ inputText })` function.
-    2.  Implement the actual agent discovery logic in `/src/lib/agentRegistry.ts`: `initializeRegistry` function should scan `/src/agents`, dynamically `import()` `.ts` files, validate metadata, and populate the internal registry map. Ensure this runs reliably on server startup (e.g., potentially via a helper function called from `layout.tsx` or a custom server if needed, needs care with Next.js build process).
-    3.  **Implement MCP Server Instance:** Create a shared `McpServer` instance (e.g., in `/src/lib/mcpServerInstance.ts`) using `@modelcontextprotocol/sdk`. Configure it with basic info (`name`, `version`).
-    4.  **Define MCP Tool:** Add the `get_fixed_data` tool to the `McpServer` instance. This tool takes no parameters (`zod` schema) and returns the defined fixed success message.
-    5.  **Testing:** Write unit tests for `reverseStringAgent.ts`'s `run` function. Write unit tests for `agentRegistry.ts` core logic. Write unit tests for the `get_fixed_data` MCP tool logic.
+    1.  Create `/server/src/agents/reverseStringAgent.ts`. Implement metadata and `execute` logic (can be a simple function or class). Agent files will be discovered by `AgentRegistryService`.
+    2.  Implement dynamic agent loading logic in `AgentRegistryService.initializeRegistry` (scan `/server/src/agents`). Ensure it runs on application startup (e.g., using `OnModuleInit`).
+    3.  Implement the `get_fixed_data` tool handler logic within `McpService` (returns the fixed success message).
+    4.  **Testing (Backend):** Write unit tests for `reverseStringAgent` logic, `AgentRegistryService` (mocking fs/imports), `OrchestratorService` stubs, and `McpService` tool handler logic using NestJS testing utilities (`@nestjs/testing`).
 
-**Phase 4: Backend API Route Implementation**
+**Phase 4: Backend API Endpoints (NestJS)**
 
-*   **Objective:** Create the Next.js API routes to expose backend functionality, including the MCP Server transport endpoints, and add integration tests.
+*   **Objective:** Implement NestJS controllers to expose backend functionality via HTTP endpoints.
 *   **Tasks:**
-    1.  Implement `GET` handler in `/app/api/agents/route.ts` using `agentRegistry.listAgents()`.
-    2.  Implement `GET` (metadata) and `POST` (execution) handlers in `/app/api/agents/[agentId]/route.ts`. Use `agentRegistry.getAgent()`. The `POST` handler must include input validation logic based on agent metadata.
-    3.  **Implement MCP Server Transport Routes:**
-        *   Create `/app/api/mcp/sse/route.ts`: Implement a `GET` handler that creates an `SSEServerTransport` from `@modelcontextprotocol/sdk`, connects it to the shared `McpServer` instance, and handles the SSE connection lifecycle. Manage multiple connections using session IDs.
-        *   Create `/app/api/mcp/messages/route.ts`: Implement a `POST` handler that finds the correct `SSEServerTransport` based on the `sessionId` query parameter and uses its `handlePostMessage` method to process incoming messages from clients (like the orchestrator).
-    4.  Implement `/app/api/orchestrate/route.ts`. Initially, just structure it to receive `POST` requests and perhaps log the input body. The core logic calling agents/MCP will be added in Phase 5.
-    5.  **Testing:** Write integration tests for the primary API routes (`/api/agents`, `/api/agents/[agentId]` POST/GET, `/api/mcp/sse`, `/api/mcp/messages`) using Jest and potentially mocking tools or Next.js test handlers.
+    1.  **API Controller:** Create `ApiController` (`server/src/api/api.controller.ts`).
+        *   Implement `GET /api/agents` endpoint using `AgentRegistryService.listAgents()`.
+        *   Implement `GET /api/agents/:agentId` endpoint using `AgentRegistryService.getAgent()`.
+        *   Implement `POST /api/agents/:agentId` endpoint. Inject `AgentRegistryService`, perform validation (using NestJS Pipes/DTOs), call `agentInfo.execute()`.
+        *   Implement `POST /api/orchestrate` endpoint. Inject `OrchestratorService`, use DTOs for request body, call `orchestratorService.handleRequest()`. (Logic to be implemented in Phase 5).
+    2.  **MCP Controller:** Create `McpController` (`server/src/mcp/mcp.controller.ts`).
+        *   Implement `GET /api/mcp/sse` endpoint. Use NestJS SSE capabilities (`@nestjs/common` Sse decorator). Create `SSEServerTransport`, connect it to the `McpServer` instance from `McpService`, manage connections/sessions.
+        *   Implement `POST /api/mcp/messages` endpoint. Find the transport by session ID, use `transport.handlePostMessage`.
+    3.  Configure CORS in `server/src/main.ts` (`app.enableCors()`).
+    4.  **Testing (Backend):** Write e2e tests (`.e2e-spec.ts`) for the NestJS API endpoints using `@nestjs/testing` and `supertest`.
 
-**Phase 5: Orchestrator & MCP Client Logic Implementation**
+**Phase 5: Orchestrator & MCP Client Logic Implementation (NestJS)**
 
-*   **Objective:** Implement the core routing and MCP client interaction logic *within* the orchestrator.
+*   **Objective:** Implement the core routing and MCP client interaction logic *within* the `OrchestratorService`.
 *   **Tasks:**
-    1.  *(Removed task for implementing standalone `mcpClient.ts`)*
-    2.  Implement the V1 logic in `/src/lib/orchestrator.ts`'s `handleRequest` function:
+    1.  Implement the V1 logic in `OrchestratorService.handleRequest`:
         *   Keyword matching ("reverse", "mcp data").
-        *   If agent identified, check metadata for required parameters.
-        *   If parameters missing, format and return `needs_parameters` response.
-        *   If agent identified and parameters ok (or none needed), call `agentRegistry.getAgent().execute()`.
-        *   **If MCP intent identified (`mcp data`):**
+        *   Agent Handling: Check params, return `needs_parameters` response if needed, call agent execute.
+        *   **MCP Handling (`mcp data`):**
             *   Instantiate an MCP `Client` from `@modelcontextprotocol/sdk`.
-            *   Create an `SSEServerTransport` (or similar mechanism if running in the same process allows a more direct connection, TBD) to connect to the MCP server's transport endpoints (e.g., `http://localhost:3000/api/mcp/sse`).
-            *   Connect the `Client` to the `McpServer` via the transport.
+            *   Connect the `Client` to the *local* NestJS MCP SSE endpoint (`http://localhost:3001/api/mcp/sse` - use config/env var for URL).
             *   Call the `get_fixed_data` tool using `client.callTool()`.
-            *   Handle the response (success or error) from the tool call.
+            *   Handle the response/error.
             *   Disconnect the client.
-        *   Format final success/error responses based on agent/MCP results.
-        *   Handle NLU miss with the defined error structure.
-    3.  Update `/app/api/orchestrate/route.ts` to call the enhanced `orchestrator.handleRequest()` and return its response correctly formatted (using `NextResponse.json`).
-    4.  **Testing:** Write unit tests for the core logic within `orchestrator.ts`, mocking dependencies like the agent registry and the MCP `Client` interactions (tool calls, connection).
+        *   Format final success/error responses.
+        *   Handle NLU miss.
+    2.  Ensure `ApiController` correctly uses the updated `OrchestratorService`.
+    3.  **Testing (Backend):** Write/update unit tests for `OrchestratorService` logic, mocking `AgentRegistryService` and MCP `Client` interactions.
 
-**Phase 6: Frontend UI Shell & Basic State**
+**Phase 6: Backend Conversation Persistence (NestJS)**
 
-*   **Objective:** Build the basic MUI layout, set up state management, and add basic component tests.
+*   **Objective:** Implement conversation history persistence and user identity on the backend to support cross-device continuity.
 *   **Tasks:**
-    1.  Configure MUI theme provider (`ThemeRegistry` pattern) in `/app/layout.tsx`.
-    2.  Create basic page layout in `/app/page.tsx` using MUI `Container`, `Box`, `AppBar` (optional), etc.
-    3.  Create `/src/components/ConversationDisplay.tsx` to render conversation history (messages).
-    4.  Create `/src/components/ErrorDisplay.tsx` (e.g., using MUI `Alert`).
-    5.  Create `/src/components/VoiceInputButton.tsx` using MUI `Button`/`IconButton`.
-    6.  Create `/src/store/conversationStore.ts` using Zustand. Define state slices for `messages` (array of user/assistant messages), `isLoading` (boolean), `error` (object or null).
-    7.  Connect `ConversationDisplay` and `ErrorDisplay` to read from the Zustand store.
-    8.  **Testing:** Write basic component tests using React Testing Library for `ConversationDisplay` and `ErrorDisplay` to ensure they render correctly based on props/store state.
+    1.  **Conversation Data Models:** Create models in `server/src/shared/models/`
+        *   Create `Conversation` model with fields for ID, user ID, title, created date, etc.
+        *   Create `Message` model with fields for ID, conversation ID, content, role (user/system), timestamp, etc.
+    2.  **User Identity & Session Management:**
+        *   Create `UserService` for managing user identities (can start with simple anonymous sessions)
+        *   Implement session middleware to attach user ID to requests
+        *   Store user preferences and settings
+    3.  **Conversation Service:** Create `ConversationService` in `server/src/shared/conversation.service.ts`
+        *   Implement methods to create, read, update conversations and messages
+        *   Add support for conversation search and filtering
+    4.  **Conversation Controller:** Create `ConversationController` in `server/src/api/conversation.controller.ts`
+        *   Implement `GET /api/conversations` to list user conversations
+        *   Implement `GET /api/conversations/:id` to get a specific conversation with messages
+        *   Implement `POST /api/conversations` to create a new conversation
+        *   Implement `POST /api/conversations/:id/messages` to add a message to a conversation
+    5.  **Integrate with Orchestrator:**
+        *   Update `OrchestratorService` to store queries and responses in the conversation history
+        *   Add conversation context to enhance agent responses
+    6.  **Testing:** Write unit and e2e tests for the conversation management functionality
 
-**Phase 7: Frontend Voice Input & API Integration**
+**Phase 7: Frontend UI Shell & API Integration (Next.js)**
 
-*   **Objective:** Implement voice input, connect the frontend to the orchestrator API, and add component tests.
-*   **Tasks:** *(Simplified - no direct frontend MCP handling)*
-    1.  Integrate `SpeechRecognition` API into `VoiceInputButton.tsx`. Handle start/stop listening, receiving results, and errors (permissions, no speech). Update component visual state (e.g., indicate listening).
-    2.  On receiving a transcript:
-        *   Update Zustand store: add user message, set `isLoading` to true, clear `error`.
-        *   Make a `POST` request to `/api/orchestrate` with the transcribed text.
-        *   On response:
-            *   Update Zustand store: set `isLoading` to false.
-            *   If success/error: add assistant message or set `error` state.
-            *   If `needs_parameters`: store needed parameters in state (new state slice needed). *(This remains for agent parameters)*
-    3.  **Testing:** Write component tests for `VoiceInputButton.tsx` verifying state changes and potentially mocking the SpeechRecognition API and the fetch call to `/api/orchestrate`.
-
-**Phase 8: Frontend Dynamic Parameter Form**
-
-*   **Objective:** Implement the UI for handling *agent* parameter requests from the orchestrator and add component tests. *(No changes needed here, as this form is for agent params, not MCP)*
+*   **Objective:** Build the basic MUI layout and integrate with backend conversation API.
 *   **Tasks:**
-    1.  Add state slice in Zustand store to hold `parametersNeeded` (array or null).
-    2.  Create `/src/components/DynamicForm.tsx`.
-    3.  Conditionally render `DynamicForm` in `page.tsx` when `parametersNeeded` state is populated.
-    4.  `DynamicForm` should map over `parametersNeeded` and render appropriate MUI controls (`TextField`, etc.) based on the `control` property. Include labels/descriptions from metadata.
-    5.  Implement form submission handler:
-        *   Collect values from form fields.
-        *   Update Zustand store: clear `parametersNeeded`, set `isLoading` to true.
-        *   Make a `POST` request to `/api/orchestrate` including the collected parameters and necessary context (identifying the pending agent/task).
-        *   Handle response as in Phase 7.
-    6.  **Testing:** Write component tests for `DynamicForm.tsx` ensuring it renders correct controls based on input props and that its submission handler works (mocking fetch).
+    1.  Configure MUI theme provider (`ThemeRegistry`) in `app/layout.tsx`.
+    2.  Create basic page layout in `app/page.tsx` using MUI.
+    3.  Create components:
+        *   `/src/components/ConversationDisplay.tsx` - Display messages in the current conversation
+        *   `/src/components/ConversationList.tsx` - List and select conversations
+        *   `/src/components/ErrorDisplay.tsx` - Show errors
+        *   `/src/components/VoiceInputButton.tsx` - Voice input UI
+    4.  Create `/src/api/conversationApi.ts` with functions to interact with conversation endpoints
+    5.  Create `/src/store/uiStore.ts` using Zustand for UI-only state (loading indicators, etc.)
+    6.  Connect components to backend API endpoints
+    7.  **Testing (Frontend):** Write basic component tests using React Testing Library
 
-**Phase 9: Testing & Refinement**
+**Phase 8: Frontend Voice Input & Conversation Integration (Next.js)**
 
-*   **Objective:** Ensure all V1 flows work correctly, complete testing coverage, and perform basic cleanup.
-*   **Tasks:** *(Minor wording adjustments)*
-    1.  Perform end-to-end testing for the "reverse string" flow (including parameter request).
-    2.  Perform end-to-end testing for the "mcp data" flow (invoked via orchestrator).
-    3.  Test the flow for unrecognized commands.
-    4.  Test direct API calls (`/api/agents`, `/api/agents/[agentId]`, `/api/mcp/...` endpoints if needed for debugging).
-    5.  Test error display in the UI for various scenarios (API errors, agent errors, MCP errors reported via orchestrator).
-    6.  **Testing:** Review test coverage. Add any missing unit, integration, or component tests identified during end-to-end testing.
-    7.  Review code for clarity, consistency, and remove any obvious bugs or console logs.
-    8.  Ensure basic UI responsiveness and usability.
+*   **Objective:** Implement voice input and integrate with the backend conversation API.
+*   **Tasks:**
+    1.  Integrate `SpeechRecognition` API into `VoiceInputButton.tsx`.
+    2.  On receiving transcript:
+        *   Show in UI immediately
+        *   Make a `POST` request to add message to current conversation
+        *   Make a `POST` request to the orchestrator endpoint with the transcript
+        *   Handle response (success, error, needs_parameters) and update UI
+    3.  **Testing (Frontend):** Write component tests for `VoiceInputButton.tsx`, mocking SpeechRecognition and the API calls.
+
+**Phase 9: Frontend Dynamic Parameter Form (Next.js)**
+
+*   **Objective:** Implement the UI for handling agent parameter requests.
+*   **Tasks:**
+    1.  Add parameter handling to UI store
+    2.  Create `/src/components/DynamicForm.tsx`
+    3.  Conditionally render `DynamicForm` when needed
+    4.  `DynamicForm` renders controls based on parameter definitions
+    5.  Form submission handler makes appropriate API requests with parameters
+    6.  Handle response and update conversation display
+    7.  **Testing (Frontend):** Write component tests for `DynamicForm.tsx`
+
+**Phase 10: Testing & Refinement**
+
+*   **Objective:** Ensure all V1 flows work correctly across FE/BE, complete testing coverage, and perform cleanup.
+*   **Tasks:**
+    1.  Test complete conversation flows end-to-end
+    2.  Test cross-device conversation continuity
+    3.  Test error handling flows
+    4.  Review test coverage (FE & BE)
+    5.  Review code for clarity, consistency, remove logs
+    6.  Ensure responsive UI for all screen sizes
 
 ---
 
 **Future Considerations:**
 
+*   **Authentication:** Implement proper user authentication beyond simple sessions
 *   **Orchestrator Complexity:** If the orchestrator logic becomes significantly more complex (e.g., multi-step agent sequences, dynamic planning based on results, complex error recovery loops), consider refactoring it using a dedicated stateful agent framework like LangGraph. The `@langchain/mcp-adapters` library can facilitate integrating MCP tools into a LangGraph setup.
 *   **MCP Permissions:** Implement a robust mechanism for handling user permissions for accessing MCP tools/resources, potentially storing consent per user/tool.
 *   **Agent/MCP Discovery:** Enhance the dynamic discovery mechanisms for both agents and potentially MCP servers/capabilities if the system grows.
+*   **Performance Optimization:** Add caching for conversation history and agent responses
 
 ---
 
-This plan provides a structured sequence. We can tackle these phases one by one.
+This plan provides a structured sequence for the updated architecture with cross-device conversation persistence.

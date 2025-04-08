@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:server": "cd server && npm run start:dev",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -28,11 +30,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "ts-jest": "^29.3.1",
+    "ts-node-dev": "^2.0.0",
     "typescript": "^5"
   }
 }
