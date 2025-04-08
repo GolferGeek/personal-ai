@@ -160,6 +160,16 @@ export class ConversationController {
     @Headers('x-user-id') userIdHeader: string,
     @Body() addMessageDto: AddMessageDto,
   ) {
+    // Log the raw DTO to see what's coming in
+    console.log('Received message DTO:', {
+      rawDto: addMessageDto,
+      content: addMessageDto.content,
+      contentType: typeof addMessageDto.content,
+      role: addMessageDto.role,
+      dtoKeys: Object.keys(addMessageDto),
+      jsonString: JSON.stringify(addMessageDto)
+    });
+    
     const userId = this.getUserIdFromHeader(userIdHeader);
     const conversation = this.conversationService.getConversation(id);
     
@@ -172,17 +182,33 @@ export class ConversationController {
       throw new NotFoundException(`Conversation with ID ${id} not found`);
     }
     
-    if (!addMessageDto.content) {
-      throw new BadRequestException('Message content is required');
+    // Enhanced content checking
+    if (!addMessageDto.content || typeof addMessageDto.content !== 'string' || addMessageDto.content.trim() === '') {
+      console.error('Message content is invalid:', {
+        content: addMessageDto.content,
+        type: typeof addMessageDto.content
+      });
+      throw new BadRequestException('Message content is required and must be a non-empty string');
     }
     
-    const message = this.conversationService.addMessage(
-      id,
-      addMessageDto.content,
-      addMessageDto.role || 'user',
-    );
+    // Ensure content is a string and trimmed
+    const content = String(addMessageDto.content).trim();
+    const role = addMessageDto.role || 'user';
     
-    return message;
+    console.log('Sending to service:', { content, role });
+    
+    try {
+      const message = this.conversationService.addMessage(
+        id,
+        content,
+        role as MessageRole,
+      );
+      
+      return message;
+    } catch (error) {
+      console.error('Error in addMessage:', error);
+      throw new BadRequestException(error.message || 'Failed to add message');
+    }
   }
 
   @Get(':id/messages')
