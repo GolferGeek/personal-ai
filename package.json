@@ -10,7 +10,9 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:server": "cd server && npm test",
+    "test:all": "npm test && npm run test:server"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

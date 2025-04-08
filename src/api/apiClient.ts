@@ -1,4 +1,15 @@
 import { Conversation, Message, ParametersNeededState } from '../models/conversation';
+import { v4 as uuidv4 } from 'uuid';
+
+// Get or create a user ID for the session
+function getUserId(): string {
+  let userId = localStorage.getItem('userId');
+  if (!userId) {
+    userId = uuidv4();
+    localStorage.setItem('userId', userId);
+  }
+  return userId;
+}
 
 // Response types
 export interface ApiResponse {
@@ -18,22 +29,61 @@ export interface ParametersNeededResponse extends ApiResponse {
 
 export type Response = MessageResponse | ParametersNeededResponse;
 
+// Helper function to add user ID to request headers
+function getHeaders(): HeadersInit {
+  return {
+    'Content-Type': 'application/json',
+    'x-user-id': getUserId()
+  };
+}
+
 // API client for conversation-related endpoints
 const apiClient = {
   // Fetch all conversations
   async getConversations(): Promise<Conversation[]> {
-    const response = await fetch('/api/conversations');
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch conversations: ${response.statusText}`);
+    try {
+      const response = await fetch('/api/conversations', {
+        headers: getHeaders()
+      });
+      
+      if (!response.ok) {
+        // If no conversations exist (404), create a default one
+        if (response.status === 404) {
+          console.log('No conversations found, creating a default conversation');
+          const defaultConversation = await this.createConversation('New Conversation');
+          return [defaultConversation];
+        }
+        throw new Error(`Failed to fetch conversations: ${response.statusText}`);
+      }
+      
+      const conversations = await response.json();
+      // If no conversations returned, create a default one
+      if (conversations && Array.isArray(conversations) && conversations.length === 0) {
+        console.log('No conversations found, creating a default conversation');
+        const defaultConversation = await this.createConversation('New Conversation');
+        return [defaultConversation];
+      }
+      
+      return conversations;
+    } catch (error) {
+      // If any error occurs, try to create a default conversation
+      console.error('Error fetching conversations:', error);
+      console.log('Creating a default conversation after error');
+      try {
+        const defaultConversation = await this.createConversation('New Conversation');
+        return [defaultConversation];
+      } catch (createError) {
+        console.error('Error creating default conversation:', createError);
+        throw error; // Re-throw the original error
+      }
     }
-    
-    return response.json();
   },
   
   // Fetch a single conversation with its messages
   async getConversation(id: string): Promise<Conversation> {
-    const response = await fetch(`/api/conversations/${id}`);
+    const response = await fetch(`/api/conversations/${id}`, {
+      headers: getHeaders()
+    });
     
     if (!response.ok) {
       throw new Error(`Failed to fetch conversation: ${response.statusText}`);
@@ -44,7 +94,9 @@ const apiClient = {
   
   // Fetch messages for a conversation
   async getMessages(conversationId: string): Promise<Message[]> {
-    const response = await fetch(`/api/conversations/${conversationId}/messages`);
+    const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+      headers: getHeaders()
+    });
     
     if (!response.ok) {
       throw new Error(`Failed to fetch messages: ${response.statusText}`);
@@ -63,10 +115,8 @@ const apiClient = {
     
     const response = await fetch(`/api/conversations/${conversationId}/messages`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ message })
+      headers: getHeaders(),
+      body: JSON.stringify({ content, role: 'user' })
     });
     
     if (!response.ok) {
@@ -84,9 +134,7 @@ const apiClient = {
   ): Promise<Response> {
     const response = await fetch(`/api/conversations/${conversationId}/agent-parameters`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: getHeaders(),
       body: JSON.stringify({ agentId, parameters })
     });
     
@@ -101,9 +149,7 @@ const apiClient = {
   async createConversation(title?: string): Promise<Conversation> {
     const response = await fetch('/api/conversations', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: getHeaders(),
       body: JSON.stringify({ title: title || 'New Conversation' })
     });
     
@@ -117,7 +163,8 @@ const apiClient = {
   // Delete a conversation
   async deleteConversation(id: string): Promise<ApiResponse> {
     const response = await fetch(`/api/conversations/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getHeaders()
     });
     
     if (!response.ok) {
@@ -134,11 +181,9 @@ const apiClient = {
   ): Promise<Response> {
     const response = await fetch('/api/orchestrate', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: getHeaders(),
       body: JSON.stringify({
-        query,
+        input: query,
         conversationId
       })
     });
