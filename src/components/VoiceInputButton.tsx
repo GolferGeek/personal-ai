@@ -1,140 +1,202 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Button, CircularProgress } from '@mui/material';
+import { 
+  Box, 
+  IconButton, 
+  TextField, 
+  Paper, 
+  InputAdornment,
+  CircularProgress
+} from '@mui/material';
 import MicIcon from '@mui/icons-material/Mic';
+import SendIcon from '@mui/icons-material/Send';
 import StopIcon from '@mui/icons-material/Stop';
 
-// Remove custom declarations as @types/dom-speech-recognition provides them
-/*
-interface CustomSpeechRecognition extends SpeechRecognition {
-  // No specific extensions needed for this basic use case
+// Define SpeechRecognition interface for browser compatibility
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
 }
 
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
+}
+
+// Add global types for SpeechRecognition
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
+    SpeechRecognition?: new () => SpeechRecognition;
+    webkitSpeechRecognition?: new () => SpeechRecognition;
   }
 }
-*/
 
 interface VoiceInputButtonProps {
-  isLoading: boolean;
   onTranscript: (transcript: string) => void;
-  onError: (error: string | null) => void; // Allow null for clearing errors
+  onError: (error: string) => void;
+  isLoading: boolean;
 }
 
-const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({ isLoading, onTranscript, onError }) => {
-  const [isListening, setIsListening] = useState(false);
-  // Use the globally available SpeechRecognition type
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
+  onTranscript,
+  onError,
+  isLoading
+}) => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const textFieldRef = useRef<HTMLInputElement>(null);
 
+  // Initialize speech recognition
   useEffect(() => {
-    // Check for both standard and prefixed versions
-    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognitionAPI) {
-      console.warn('Speech Recognition API is not supported in this browser.');
-      // Optionally, disable the button or show a message
-      onError('Speech Recognition API is not supported in this browser.');
-      return;
-    }
-
-    // Now correctly typed thanks to @types/dom-speech-recognition
-    const recognition = new SpeechRecognitionAPI();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US'; // Set language
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[event.results.length - 1][0].transcript.trim();
-      console.log('Transcript received:', transcript);
-      onTranscript(transcript);
-      setIsListening(false); // Automatically stop listening visually after result
-    };
-
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error('Speech recognition error:', event.error);
-      let errorMessage = `Speech recognition error: ${event.error}`;
-      if (event.error === 'no-speech') {
-        errorMessage = 'No speech detected. Please try again.';
+    if (typeof window !== 'undefined') {
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (!SpeechRecognitionAPI) {
+        onError('Speech recognition is not supported in this browser');
+        return;
       }
-      // Handle other errors like network, audio-capture, not-allowed
-      onError(errorMessage);
-      setIsListening(false); // Ensure listening state is reset
-    };
-
-    recognition.onend = () => {
-      console.log('Speech recognition ended.');
-      // Ensure visual state matches recognition state
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-
-    // Cleanup function: Stop recognition if component unmounts while listening
+      
+      const recognitionInstance = new SpeechRecognitionAPI();
+      
+      recognitionInstance.continuous = true;
+      recognitionInstance.interimResults = true;
+      recognitionInstance.lang = 'en-US';
+      
+      recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            finalTranscript += result[0].transcript;
+          }
+        }
+        
+        if (finalTranscript) {
+          setTranscript((prevTranscript) => 
+            prevTranscript ? `${prevTranscript} ${finalTranscript}` : finalTranscript
+          );
+        }
+      };
+      
+      recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error', event.error);
+        onError(`Speech recognition error: ${event.error}`);
+        setIsRecording(false);
+      };
+      
+      recognitionInstance.onend = () => {
+        setIsRecording(false);
+      };
+      
+      setRecognition(recognitionInstance);
+    }
+    
     return () => {
-      // Check if recognitionRef.current exists and has the stop method
-      if (recognitionRef.current?.stop && isListening) {
-        try {
-          recognitionRef.current.stop();
-          console.log('Stopped speech recognition on component unmount.');
-        } catch (error) {
-          // Ignore errors during cleanup, e.g., if already stopped
-          console.warn('Error stopping recognition on unmount:', error);
-        }
+      if (recognition) {
+        recognition.abort();
       }
     };
-    // Rerun effect only if callbacks change (though unlikely)
-  }, [onTranscript, onError]); // Removed isListening dependency to prevent recreation on state change
+  }, [onError]);
 
-  const handleButtonClick = () => {
-    const recognition = recognitionRef.current;
-    if (!recognition) {
-      onError('Speech Recognition is not initialized.');
-      return;
+  const startRecording = () => {
+    if (recognition && !isRecording && !isLoading) {
+      setIsRecording(true);
+      setTranscript('');
+      recognition.start();
     }
+  };
 
-    if (isListening) {
+  const stopRecording = () => {
+    if (recognition && isRecording) {
       recognition.stop();
-      console.log('Stopping voice input manually...');
-      setIsListening(false);
-    } else {
-      try {
-        recognition.start();
-        console.log('Starting voice input...');
-        setIsListening(true);
-        onError(null); // Clear previous errors on start
-      } catch (error) {
-        console.error('Error starting speech recognition:', error);
-        // Check if error is an instance of Error before accessing message
-        let errorMsg = 'An unknown error occurred while starting speech recognition.';
-        if (error instanceof Error) {
-          errorMsg = `Error starting speech recognition: ${error.message}`;
-        }
-        onError(errorMsg);
-        setIsListening(false);
-      }
+      setIsRecording(false);
+    }
+  };
+
+  const handleSendMessage = () => {
+    if (transcript.trim() && !isLoading) {
+      onTranscript(transcript.trim());
+      setTranscript('');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-      <Button
-        variant="contained"
-        color={isListening ? 'error' : 'primary'}
-        onClick={handleButtonClick}
-        // Disable button if recognition is not supported or during API loading
-        disabled={isLoading || !recognitionRef.current}
-        startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : (isListening ? <StopIcon /> : <MicIcon />)}
-        sx={{ minWidth: '120px', height: '50px' }}
+    <Paper
+      elevation={2}
+      component="form"
+      sx={{
+        p: '2px 4px',
+        display: 'flex',
+        alignItems: 'center',
+        width: '100%',
+      }}
+    >
+      <TextField
+        fullWidth
+        multiline
+        maxRows={4}
+        value={transcript}
+        onChange={(e) => setTranscript(e.target.value)}
+        onKeyDown={handleKeyDown}
+        disabled={isLoading}
+        placeholder={isRecording ? "Listening..." : "Type a message or press microphone to speak..."}
+        inputRef={textFieldRef}
+        InputProps={{
+          disableUnderline: true,
+          endAdornment: isLoading && (
+            <InputAdornment position="end">
+              <CircularProgress size={24} />
+            </InputAdornment>
+          ),
+        }}
+        variant="standard"
+        sx={{
+          ml: 1,
+          flex: 1,
+          '& .MuiInputBase-input': {
+            py: 1.5,
+          },
+        }}
+      />
+      
+      <IconButton 
+        color={isRecording ? "error" : "default"}
+        onClick={isRecording ? stopRecording : startRecording}
+        disabled={isLoading}
+        sx={{ p: '10px' }}
       >
-        {isLoading
-          ? 'Processing...'
-          : isListening
-          ? 'Stop'
-          : recognitionRef.current ? 'Speak' : 'Unsupported'}
-      </Button>
-    </Box>
+        {isRecording ? <StopIcon /> : <MicIcon />}
+      </IconButton>
+      
+      <IconButton 
+        color="primary" 
+        sx={{ p: '10px' }}
+        onClick={handleSendMessage}
+        disabled={!transcript.trim() || isLoading}
+      >
+        <SendIcon />
+      </IconButton>
+    </Paper>
   );
 };
 

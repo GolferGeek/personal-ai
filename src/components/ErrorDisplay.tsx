@@ -1,22 +1,26 @@
+'use client';
+
 import React from 'react';
-import { Box, Alert, AlertTitle } from '@mui/material';
+import { Alert, AlertTitle, Box, Collapse } from '@mui/material';
 
 interface ErrorDisplayProps {
   errorMessage: string | null;
 }
 
 const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ errorMessage }) => {
-  if (!errorMessage) {
-    return null; // Don't render anything if there's no error
-  }
-
   return (
-    <Box sx={{ mb: 2, minHeight: '50px' }}>
-      <Alert severity="error">
-        <AlertTitle>Error</AlertTitle>
-        {errorMessage}
-      </Alert>
-    </Box>
+    <Collapse in={!!errorMessage}>
+      <Box sx={{ mb: 2 }}>
+        <Alert 
+          severity="error" 
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          <AlertTitle>Error</AlertTitle>
+          {errorMessage}
+        </Alert>
+      </Box>
+    </Collapse>
   );
 };
 

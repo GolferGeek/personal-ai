@@ -1,40 +1,82 @@
-import React from 'react';
-import { Box, Typography } from '@mui/material';
-import { Message } from '../store/conversationStore';
+'use client';
+
+import React, { useRef, useEffect } from 'react';
+import { Box, Paper, Typography, CircularProgress, Divider } from '@mui/material';
+import { Message } from '../models/conversation';
 
 interface ConversationDisplayProps {
   messages: Message[];
+  isLoading: boolean;
 }
 
-const ConversationDisplay: React.FC<ConversationDisplayProps> = ({ messages }) => {
-  // TODO: Add logic to display conversation history based on messages prop
+const ConversationDisplay: React.FC<ConversationDisplayProps> = ({ 
+  messages, 
+  isLoading 
+}) => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   return (
-    <Box sx={{ flexGrow: 1, border: '1px solid grey', p: 2, mb: 2, overflowY: 'auto', minHeight: '300px' }}>
-      {messages.length === 0 ? (
-        <Typography variant="body1" color="text.secondary">
-          Conversation will appear here...
-        </Typography>
+    <Paper 
+      sx={{ 
+        height: '100%', 
+        p: 2, 
+        overflow: 'auto',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
+      {messages.length === 0 && !isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <Typography variant="body1" color="text.secondary">
+            Start a new conversation or select an existing one
+          </Typography>
+        </Box>
       ) : (
-        messages.map((msg) => (
-          <Box
-            key={msg.id}
-            sx={{
-              my: 1,
-              p: 1,
-              bgcolor: msg.sender === 'user' ? 'grey.200' : 'primary.light',
-              borderRadius: 1,
-              textAlign: msg.sender === 'user' ? 'right' : 'left',
-            }}
-          >
-            <Typography variant="caption" display="block" color="text.secondary">
-              {msg.sender} - {msg.timestamp.toLocaleTimeString()}
-            </Typography>
-            <Typography variant="body2">{msg.text}</Typography>
-          </Box>
-        ))
+        <>
+          {messages.map((message, index) => (
+            <Box 
+              key={index}
+              sx={{ 
+                mb: 2, 
+                alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '80%'
+              }}
+            >
+              <Paper
+                elevation={1}
+                sx={{
+                  p: 2,
+                  backgroundColor: message.role === 'user' ? 'primary.light' : 'background.paper',
+                  borderRadius: 2
+                }}
+              >
+                <Typography variant="body1">
+                  {message.content}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  {new Date(message.timestamp).toLocaleTimeString()}
+                </Typography>
+              </Paper>
+            </Box>
+          ))}
+          
+          {isLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+          
+          <div ref={messagesEndRef} />
+        </>
       )}
-    </Box>
+    </Paper>
   );
 };
 

@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Personal AI
+
+A voice-enabled AI assistant with conversation persistence and dynamic agent interaction.
+
+## Features
+
+- Voice input with speech recognition
+- Text-based conversation
+- Persistent conversation history across devices
+- Dynamic parameter handling for agent interactions
+- MCP (Model Context Protocol) integration
+
+## Architecture
+
+- **Frontend**: Next.js (App Router) with Material UI, Zustand for state management
+- **Backend**: NestJS with conversation persistence, agent registry, and MCP server
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+ 
+- npm or yarn
+
+### Installation
+
+1. Clone the repository
+   ```
+   git clone https://github.com/yourusername/personal-ai.git
+   cd personal-ai
+   ```
+
+2. Install frontend dependencies
+   ```
+   npm install
+   ```
+
+3. Install backend dependencies
+   ```
+   cd server
+   npm install
+   cd ..
+   ```
+
+### Running the Application
+
+1. Start the backend server
+   ```
+   cd server
+   npm run start:dev
+   ```
+   The NestJS backend will run on http://localhost:3001
+
+2. In another terminal, start the frontend
+   ```
+   npm run dev
+   ```
+   The Next.js frontend will run on http://localhost:3000
+
+### Testing
+
+#### Frontend Tests
+
+```
+npm test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+#### Backend Tests
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+cd server
+npm test
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Usage
 
-## Learn More
+1. Open the application at http://localhost:3000
+2. Create a new conversation or select an existing one
+3. Begin interacting with the assistant using:
+   - Type a message and press Enter or click Send
+   - Click the microphone icon to use voice input
 
-To learn more about Next.js, take a look at the following resources:
+### Agent Commands
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- "reverse [text]" - Reverses the provided text
+- "mcp data" - Retrieves data using the MCP tool
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Implementation Plan
 
-## Deploy on Vercel
+The implementation follows a phased approach as detailed in `docs/v1-implementation-plan.md`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Current Status: Phase 11 - End-to-End Testing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+[MIT License](LICENSE)
+
+## Contributors
+
+- Your Name <your.email@example.com>

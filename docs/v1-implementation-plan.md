@@ -149,6 +149,32 @@ This document outlines the step-by-step implementation plan for Phase 1 (V1) of 
     5.  Review code for clarity, consistency, remove logs
     6.  Ensure responsive UI for all screen sizes
 
+**Phase 11: End-to-End Testing**
+
+*   **Objective:** Test the complete application flow to ensure all components work together correctly.
+*   **Tasks:**
+    1.  **Test Conversation Flow:**
+        *   Start both backend and frontend servers
+        *   Verify loading of existing conversations from backend
+        *   Create a new conversation and confirm it appears in UI
+        *   Send a message and verify it shows in the conversation
+        *   Confirm backend processes the message and returns a response
+    2.  **Test Voice Input Integration:**
+        *   Test microphone activation and speech recognition
+        *   Verify transcribed text appears in input field
+        *   Submit voice-captured message and check complete flow
+        *   Test error handling for speech recognition issues
+    3.  **Test Dynamic Parameter Handling:**
+        *   Trigger a parameter request (e.g., using "reverse" keyword)
+        *   Verify dynamic form appears with appropriate fields
+        *   Submit parameters and confirm agent processes them
+        *   Test cancellation of parameter requests
+        *   Verify error handling for invalid parameters
+    4.  **Cross-Browser and Device Testing:**
+        *   Test application on different browsers (Chrome, Firefox, Safari)
+        *   Test responsive design on mobile and tablet devices
+        *   Verify speech recognition works across supported browsers
+
 ---
 
 **Future Considerations:**

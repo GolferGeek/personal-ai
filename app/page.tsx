@@ -1,31 +1,91 @@
 'use client';
 
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Link from '@mui/material/Link';
+import React, { useEffect } from 'react';
+import { Box, Typography, Paper, AppBar, Toolbar, Container, Divider } from '@mui/material';
+import ConversationList from '../src/components/ConversationList';
+import ConversationDisplay from '../src/components/ConversationDisplay';
+import VoiceInputButton from '../src/components/VoiceInputButton';
+import ErrorDisplay from '../src/components/ErrorDisplay';
+import DynamicForm from '../src/components/DynamicForm';
+import { useConversationStore } from '../src/store/conversationStore';
 
 export default function Home() {
+  const store = useConversationStore();
+
+  // Load conversations on initial load
+  useEffect(() => {
+    store.loadConversations();
+  }, []);
+
+  const handleVoiceTranscript = (transcript: string) => {
+    console.log('Voice transcript:', transcript);
+    store.sendMessage(transcript);
+  };
+
+  const handleFormSubmit = (agentId: string, formData: Record<string, any>) => {
+    console.log('Form submitted:', agentId, formData);
+    store.sendAgentParameters(agentId, formData);
+  };
+
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      minHeight: '100vh',
-      p: 4
-    }}>
-      <Typography variant="h2" component="h1" gutterBottom>
-        Personal AI
-      </Typography>
-      <Typography variant="h5" component="h2" gutterBottom>
-        Welcome to your personal AI interface
-      </Typography>
-      <Typography variant="body1" sx={{ mt: 4 }}>
-        Your NestJS server should be running at{' '}
-        <Link href="http://localhost:3001" target="_blank" rel="noopener">
-          http://localhost:3001
-        </Link>
-      </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Personal AI
+          </Typography>
+        </Toolbar>
+      </AppBar>
+
+      <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+        {/* Conversation List */}
+        <ConversationList
+          selectedConversationId={store.currentConversationId}
+          onSelectConversation={store.selectConversation}
+          onNewConversation={() => store.createConversation()}
+        />
+
+        {/* Main Chat Area */}
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          flexGrow: 1,
+          p: 2,
+          height: '100%',
+          overflow: 'hidden',
+          maxHeight: 'calc(100vh - 64px)' // 64px is the AppBar height
+        }}>
+          {/* Error Display */}
+          {store.error && <ErrorDisplay errorMessage={store.error} />}
+
+          {/* Parameters Form */}
+          {store.parametersNeeded && (
+            <DynamicForm
+              parametersNeeded={store.parametersNeeded}
+              onSubmit={handleFormSubmit}
+              onCancel={store.clearParametersNeeded}
+              isLoading={store.isProcessing}
+            />
+          )}
+
+          {/* Conversation Messages */}
+          <Box sx={{ flexGrow: 1, overflow: 'hidden', mb: 2 }}>
+            <ConversationDisplay 
+              messages={store.messages} 
+              isLoading={store.isLoadingMessages || store.isProcessing}
+            />
+          </Box>
+
+          {/* Voice Input Button */}
+          <Box sx={{ pb: 2 }}>
+            <VoiceInputButton
+              isLoading={store.isProcessing}
+              onTranscript={handleVoiceTranscript}
+              onError={store.setError}
+            />
+          </Box>
+        </Box>
+      </Box>
     </Box>
   );
 } 
