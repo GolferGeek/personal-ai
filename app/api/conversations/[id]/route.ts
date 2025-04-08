@@ -22,9 +22,9 @@ export async function GET(
   context: { params: { id: string } }
 ) {
   try {
-    // Properly await the params
-    const { params } = context;
-    const id = await Promise.resolve(params.id);
+    // Properly await the entire params object
+    const params = await context.params;
+    const id = params.id;
     
     const headers = getForwardedHeaders(req);
     const response = await fetch(`${BACKEND_URL}/api/conversations/${id}`, {
@@ -54,9 +54,9 @@ export async function DELETE(
   context: { params: { id: string } }
 ) {
   try {
-    // Properly await the params
-    const { params } = context;
-    const id = await Promise.resolve(params.id);
+    // Properly await the entire params object
+    const params = await context.params;
+    const id = params.id;
     
     const headers = getForwardedHeaders(req);
     const response = await fetch(`${BACKEND_URL}/api/conversations/${id}`, {
@@ -87,9 +87,9 @@ export async function PATCH(
   context: { params: { id: string } }
 ) {
   try {
-    // Properly await the params
-    const { params } = context;
-    const id = await Promise.resolve(params.id);
+    // Properly await the entire params object
+    const params = await context.params;
+    const id = params.id;
     
     const body = await req.json();
     const headers = getForwardedHeaders(req);

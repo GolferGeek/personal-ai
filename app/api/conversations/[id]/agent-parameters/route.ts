@@ -22,9 +22,9 @@ export async function POST(
   context: { params: { id: string } }
 ) {
   try {
-    // Properly await the params
-    const { params } = context;
-    const id = await Promise.resolve(params.id);
+    // Properly await the entire params object
+    const params = await context.params;
+    const id = params.id;
     
     const body = await req.json();
     const headers = getForwardedHeaders(req);
