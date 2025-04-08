@@ -19,8 +19,8 @@ export function useConversations() {
         throw error;
       }
     },
-    refetchInterval: 10000, // Refetch less frequently than messages
-    refetchOnWindowFocus: true,
-    staleTime: 5000, // Consider data stale after 5 seconds
+    refetchInterval: false, // Disable automatic refetching
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    staleTime: Infinity, // Consider data fresh indefinitely
   });
 } 

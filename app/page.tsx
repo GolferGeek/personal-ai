@@ -10,41 +10,50 @@ import DynamicForm from '../src/components/DynamicForm';
 import { useConversationStore } from '../src/store/conversationStore';
 import { useMessages } from '../src/hooks/useMessages';
 import { useConversations } from '../src/hooks/useConversations';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function Home() {
   const store = useConversationStore();
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   
   // Use React Query hooks for data fetching
   const { data: conversations = [], isLoading: isLoadingConversations } = useConversations();
   const { 
     data: messages = [], 
     isLoading: isLoadingMessages,
-    isFetching: isFetchingMessages 
+    isFetching: isFetchingMessages,
+    refetch: refetchMessages
   } = useMessages(currentConversationId);
+  
+  // Track if we've refetched messages after a new message is sent
+  const [needsRefetch, setNeedsRefetch] = useState(false);
+  const [isRefetching, setIsRefetching] = useState(false);
   
   // Update the current conversation ID when the store's ID changes
   useEffect(() => {
     setCurrentConversationId(store.currentConversationId);
   }, [store.currentConversationId]);
   
-  // Update the store's messages when React Query fetches new messages
+  // Manually refetch messages when needed (after sending a message)
   useEffect(() => {
-    if (messages.length > 0 && currentConversationId) {
-      // Update store messages only if they differ
-      const currentMessages = store.messages;
-      const messagesChanged = 
-        messages.length !== currentMessages.length || 
-        (messages.length > 0 && currentMessages.length > 0 && 
-         messages[messages.length - 1].id !== currentMessages[currentMessages.length - 1].id);
+    // Only refetch if we have a message to fetch and we're not already refetching
+    if (needsRefetch && !isRefetching && currentConversationId && !store.isProcessing) {
+      const doRefetch = async () => {
+        setIsRefetching(true);
+        await refetchMessages();
+        setNeedsRefetch(false);
+        setIsRefetching(false);
+      };
       
-      if (messagesChanged) {
-        console.log('Updating store with new messages from React Query');
-        // Use set function to update store messages
-        store.setMessages(messages);
-      }
+      // Wait a bit to ensure the backend has had time to process
+      const timer = setTimeout(() => {
+        doRefetch();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
     }
-  }, [messages, currentConversationId, store]);
+  }, [needsRefetch, isRefetching, currentConversationId, store.isProcessing, refetchMessages]);
   
   // Initialize conversations if needed
   useEffect(() => {
@@ -68,15 +77,40 @@ export default function Home() {
     }
   }, [conversations, currentConversationId, isLoadingConversations, store]);
 
-  const handleVoiceTranscript = (transcript: string) => {
+  const handleVoiceTranscript = async (transcript: string) => {
     console.log('Voice transcript:', transcript);
-    store.sendMessage(transcript);
+    
+    // Add user message to the UI immediately to avoid duplication
+    const userMessage = {
+      id: `local-${Date.now()}`,
+      role: 'user',
+      content: transcript,
+      timestamp: Date.now()
+    };
+    
+    // Manually update messages array to include the new message
+    queryClient.setQueryData(['messages', currentConversationId], 
+      (old: any) => [...(old || []), userMessage]);
+    
+    // Send the message
+    await store.sendMessage(transcript);
+    
+    // Schedule a refetch to get the assistant's response
+    setNeedsRefetch(true);
   };
 
-  const handleFormSubmit = (agentId: string, formData: Record<string, any>) => {
+  const handleFormSubmit = async (agentId: string, formData: Record<string, any>) => {
     console.log('Form submitted:', agentId, formData);
-    store.sendAgentParameters(agentId, formData);
+    await store.sendAgentParameters(agentId, formData);
+    
+    // Schedule a refetch to get the assistant's response
+    setNeedsRefetch(true);
   };
+
+  // Compute actual loading state to avoid spinner staying forever
+  const isActuallyLoading = isLoadingMessages || 
+                           (isRefetching && needsRefetch) || 
+                           store.isProcessing;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -125,14 +159,14 @@ export default function Home() {
           <Box sx={{ flexGrow: 1, overflow: 'hidden', mb: 2 }}>
             <ConversationDisplay 
               messages={messages} 
-              isLoading={isLoadingMessages || isFetchingMessages || store.isProcessing}
+              isLoading={isActuallyLoading}
             />
           </Box>
 
           {/* Voice Input Button */}
           <Box sx={{ pb: 2 }}>
             <VoiceInputButton
-              isLoading={store.isProcessing}
+              isLoading={isActuallyLoading}
               onTranscript={handleVoiceTranscript}
               onError={store.setError}
             />

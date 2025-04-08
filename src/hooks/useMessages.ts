@@ -30,9 +30,8 @@ export function useMessages(conversationId: string | null) {
       }
     },
     enabled: !!conversationId, // Only run the query if we have a conversation ID
-    refetchInterval: 3000, // Refetch every 3 seconds - this replaces the polling
-    refetchIntervalInBackground: false, // Don't refetch when the window is not focused
-    refetchOnWindowFocus: true, // Refetch when the window regains focus
-    staleTime: 1000, // Consider data stale after 1 second
+    refetchInterval: false, // Disable automatic refetching
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    staleTime: Infinity, // Consider data fresh indefinitely
   });
 } 

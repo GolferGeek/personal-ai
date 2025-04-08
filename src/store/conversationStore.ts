@@ -140,7 +140,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
 
   sendMessage: async (content: string) => {
     // Clear any previous errors
-    set({ error: null });
+    set({ error: null, isProcessing: true });
     
     // If no conversation is selected, create a new one first
     let conversationId = get().currentConversationId;
@@ -169,17 +169,8 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       }
     }
     
-    // Add user message to local state immediately
-    const userMessage: Message = {
-      role: 'user',
-      content,
-      timestamp: Date.now()
-    };
-    
-    set(state => ({
-      messages: [...state.messages, userMessage],
-      isProcessing: true
-    }));
+    // Note: We no longer add the user message to the state here
+    // as it's now handled by React Query in the page component
     
     try {
       console.log(`Sending message to conversation ${conversationId}:`, content);
@@ -198,16 +189,9 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
             isProcessing: false
           });
         } else if (directResponse.type === 'message') {
-          // We received a response message
-          const assistantMessage: Message = directResponse.data;
-          
-          set(state => ({
-            messages: [...state.messages, assistantMessage],
-            isProcessing: false
-          }));
-          
-          // Update conversation list to reflect the new message
-          await get().loadConversations();
+          // We don't need to add the assistant message here anymore
+          // as it will be fetched by React Query on refetch
+          set({ isProcessing: false });
         }
         
         return; // Success! No need to try the API route
@@ -227,16 +211,9 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
           isProcessing: false
         });
       } else if (response.type === 'message') {
-        // We received a response message
-        const assistantMessage: Message = response.data;
-        
-        set(state => ({
-          messages: [...state.messages, assistantMessage],
-          isProcessing: false
-        }));
-        
-        // Update conversation list to reflect the new message
-        await get().loadConversations();
+        // We don't need to add the assistant message here anymore
+        // as it will be fetched by React Query on refetch
+        set({ isProcessing: false });
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -248,35 +225,42 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   },
 
   sendAgentParameters: async (agentId: string, parameters: Record<string, any>) => {
-    set({ 
-      isProcessing: true,
-      parametersNeeded: null, // Clear the parameters request
-      error: null // Clear any previous errors
-    });
+    // Clear any previous errors
+    set({ error: null, isProcessing: true });
+    
+    // Clear parameter needed state
+    set({ parametersNeeded: null });
+    
+    // Need a conversation ID
+    const conversationId = get().currentConversationId;
+    if (!conversationId) {
+      set({ 
+        error: 'No conversation selected', 
+        isProcessing: false 
+      });
+      return;
+    }
     
     try {
-      const conversationId = get().currentConversationId!;
-      
-      // Send parameters to API
+      console.log(`Sending parameters to agent ${agentId}:`, parameters);
       const response = await apiClient.sendParameters(conversationId, agentId, parameters);
       
-      // Add the assistant's response to the messages
-      if (response.type === 'message') {
-        const assistantMessage: Message = response.data;
-        
-        set(state => ({
-          messages: [...state.messages, assistantMessage],
-          isProcessing: false
-        }));
-        
-        // Refresh the conversation list
-        await get().loadConversations();
+      if (response.type === 'parameters_needed') {
+        // We still need more parameters
+        set({ 
+          parametersNeeded: response.data, 
+          isProcessing: false 
+        });
+      } else if (response.type === 'message') {
+        // We don't need to add the assistant message here anymore
+        // as it will be fetched by React Query on refetch
+        set({ isProcessing: false });
       }
     } catch (error) {
       console.error('Error sending parameters:', error);
       set({ 
-        error: error instanceof Error ? error.message : 'Failed to process your request',
-        isProcessing: false 
+        error: error instanceof Error ? error.message : 'Failed to process parameters',
+        isProcessing: false
       });
     }
   },
