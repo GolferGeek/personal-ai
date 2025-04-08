@@ -9,7 +9,8 @@ import {
   NotFoundException, 
   BadRequestException,
   Headers,
-  Patch
+  Patch,
+  ValidationPipe
 } from '@nestjs/common';
 import { ConversationService } from '../shared/conversation.service';
 import { UserService } from '../shared/user.service';
@@ -21,7 +22,7 @@ class CreateConversationDto {
 
 class AddMessageDto {
   content: string;
-  role: MessageRole;
+  role?: MessageRole;  // Make role optional with default value applied in controller
 }
 
 class UpdateConversationDto {

@@ -107,16 +107,13 @@ const apiClient = {
   
   // Send a new message
   async sendMessage(conversationId: string, content: string): Promise<Response> {
-    const message: Partial<Message> = {
-      role: 'user',
-      content,
-      timestamp: Date.now()
-    };
-    
     const response = await fetch(`/api/conversations/${conversationId}/messages`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ content, role: 'user' })
+      body: JSON.stringify({
+        content: content,
+        role: 'user'
+      })
     });
     
     if (!response.ok) {
@@ -147,13 +144,32 @@ const apiClient = {
   
   // Create a new conversation
   async createConversation(title?: string): Promise<Conversation> {
+    const payload = { title: title || 'New Conversation' };
+    
+    // Log the payload for debugging
+    console.log('Creating conversation with payload:', payload);
+    
     const response = await fetch('/api/conversations', {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ title: title || 'New Conversation' })
+      body: JSON.stringify(payload)
     });
     
     if (!response.ok) {
+      // Log the error response for debugging
+      console.error('Failed to create conversation:', {
+        status: response.status,
+        statusText: response.statusText
+      });
+      
+      // Try to get the error details from the response
+      try {
+        const errorData = await response.json();
+        console.error('Error details:', errorData);
+      } catch (e) {
+        console.error('Could not parse error response');
+      }
+      
       throw new Error(`Failed to create conversation: ${response.statusText}`);
     }
     
