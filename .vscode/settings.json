@@ -4,8 +4,8 @@
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
+    "source.fixAll.eslint": "explicit"
   },
   "jest.jestCommandLine": "npm test --",
   "typescript.preferences.importModuleSpecifier": "relative"
-} 
+}
