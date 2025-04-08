@@ -3,37 +3,27 @@
 import React, { useState, useRef } from 'react';
 import { 
   Box, 
-  IconButton, 
   TextField, 
+  IconButton, 
   Paper, 
-  InputAdornment,
-  CircularProgress,
-  Typography
+  InputAdornment, 
+  CircularProgress 
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
-interface VoiceInputButtonProps {
-  onTranscript: (transcript: string) => void;
-  onError: (error: string) => void;
-  isLoading: boolean;
+interface TextInputButtonProps {
+  isLoading?: boolean;
+  onSendMessage: (text: string) => void;
 }
 
-const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
-  onTranscript,
-  onError,
-  isLoading
+const TextInputButton: React.FC<TextInputButtonProps> = ({ 
+  isLoading = false,
+  onSendMessage
 }) => {
   const [input, setInput] = useState('');
   const textFieldRef = useRef<HTMLInputElement>(null);
 
-  const handleSendMessage = () => {
-    if (input.trim() && !isLoading) {
-      onTranscript(input.trim());
-      setInput('');
-    }
-  };
-
+  // Handle enter key in text field
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -41,12 +31,14 @@ const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
     }
   };
 
-  // Focus the text field on mount
-  React.useEffect(() => {
-    if (textFieldRef.current) {
-      textFieldRef.current.focus();
+  // Handle clicking the send button
+  const handleSendMessage = () => {
+    const trimmedInput = input.trim();
+    if (trimmedInput && !isLoading) {
+      onSendMessage(trimmedInput);
+      setInput('');
     }
-  }, []);
+  };
 
   return (
     <Box>
@@ -69,7 +61,7 @@ const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={isLoading}
-          placeholder="Type or use your system's voice dictation (shortcut differs by OS)..."
+          placeholder="Type your message..."
           inputRef={textFieldRef}
           InputProps={{
             disableUnderline: true,
@@ -99,20 +91,8 @@ const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
           <SendIcon />
         </IconButton>
       </Paper>
-      
-      <Typography 
-        variant="caption" 
-        color="text.secondary"
-        display="flex"
-        alignItems="center"
-        sx={{ mt: 0.5, ml: 1 }}
-      >
-        <InfoOutlinedIcon fontSize="inherit" sx={{ mr: 0.5 }} />
-        Use your system's voice dictation: 
-        macOS (⌘+⌃+Space), Windows (Win+H), iOS (mic key), Android (mic key)
-      </Typography>
     </Box>
   );
 };
 
-export default VoiceInputButton; 
+export default TextInputButton; 

@@ -4,9 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, AppBar, Toolbar } from '@mui/material';
 import ConversationList from '../src/components/ConversationList';
 import ConversationDisplay from '../src/components/ConversationDisplay';
-import VoiceInputButton from '../src/components/VoiceInputButton';
-import ErrorDisplay from '../src/components/ErrorDisplay';
 import DynamicForm from '../src/components/DynamicForm';
+import ErrorDisplay from '../src/components/ErrorDisplay';
+import TextInputButton from '../src/components/TextInputButton';
 import { useConversationStore } from '../src/store/conversationStore';
 import { useConversations } from '../src/hooks/useConversations';
 import { useConversationService } from '../src/hooks/useConversationService';
@@ -53,12 +53,17 @@ export default function Home() {
     console.log('Current store messages:', store.messages);
   }, [store.messages]);
 
-  const handleVoiceTranscript = async (transcript: string) => {
-    await conversationService.sendMessage(transcript);
+  const handleSendMessage = async (message: string) => {
+    await conversationService.sendMessage(message);
   };
 
   const handleFormSubmit = async (agentId: string, formData: Record<string, any>) => {
     await conversationService.sendAgentParameters(agentId, formData);
+  };
+
+  // Selecting a conversation
+  const handleSelectConversation = (newId: string) => {
+    conversationService.selectConversation(newId);
   };
 
   return (
@@ -75,7 +80,7 @@ export default function Home() {
         {/* Conversation List */}
         <ConversationList
           selectedConversationId={currentConversationId}
-          onSelectConversation={conversationService.selectConversation}
+          onSelectConversation={handleSelectConversation}
           onNewConversation={() => conversationService.createConversation()}
           conversations={conversations}
           isLoading={isLoadingConversations}
@@ -113,13 +118,12 @@ export default function Home() {
               isLoading={conversationService.isProcessing}
             />
           </Box>
-
-          {/* Voice Input Button */}
+          
+          {/* Message Input */}
           <Box sx={{ pb: 2 }}>
-            <VoiceInputButton
+            <TextInputButton
               isLoading={conversationService.isProcessing}
-              onTranscript={handleVoiceTranscript}
-              onError={conversationService.setError}
+              onSendMessage={handleSendMessage}
             />
           </Box>
         </Box>
