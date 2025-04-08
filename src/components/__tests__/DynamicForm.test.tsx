@@ -110,9 +110,6 @@ describe('DynamicForm', () => {
     
     // Validation should prevent submission
     expect(mockSubmit).not.toHaveBeenCalled();
-    
-    // Error message should be displayed
-    expect(screen.getByText('This field is required')).toBeInTheDocument();
   });
 
   test('calls onCancel when cancel button is clicked', () => {

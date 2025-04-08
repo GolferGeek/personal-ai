@@ -137,7 +137,7 @@ describe('VoiceInputButton', () => {
     );
     
     // Check that the microphone button is rendered
-    expect(screen.getByRole('button', { name: /mic/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Start microphone')).toBeInTheDocument();
     
     // Check that the text field is rendered
     expect(screen.getByPlaceholderText(/Type a message or press microphone to speak/i)).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe('VoiceInputButton', () => {
     const startSpy = jest.spyOn(mockSpeechRecognition, 'start');
     
     // Click the microphone button
-    fireEvent.click(screen.getByRole('button', { name: /mic/i }));
+    fireEvent.click(screen.getByLabelText('Start microphone'));
     
     // Expect start to have been called
     expect(startSpy).toHaveBeenCalled();
@@ -175,13 +175,13 @@ describe('VoiceInputButton', () => {
     );
     
     // Start recording
-    fireEvent.click(screen.getByRole('button', { name: /mic/i }));
+    fireEvent.click(screen.getByLabelText('Start microphone'));
     
     // Spy on the stop method
     const stopSpy = jest.spyOn(mockSpeechRecognition, 'stop');
     
     // Click the stop button (now rendered instead of mic)
-    fireEvent.click(screen.getByRole('button', { name: /stop/i }));
+    fireEvent.click(screen.getByLabelText('Stop recording'));
     
     // Expect stop to have been called
     expect(stopSpy).toHaveBeenCalled();
@@ -197,7 +197,7 @@ describe('VoiceInputButton', () => {
     );
     
     // Start recording
-    fireEvent.click(screen.getByRole('button', { name: /mic/i }));
+    fireEvent.click(screen.getByLabelText('Start microphone'));
     
     // Simulate speech recognition result
     act(() => {
@@ -223,7 +223,7 @@ describe('VoiceInputButton', () => {
     });
     
     // Click the send button
-    fireEvent.click(screen.getByRole('button', { name: /send/i }));
+    fireEvent.click(screen.getByLabelText('Send message'));
     
     // Expect onTranscript to have been called with the text
     expect(mockOnTranscript).toHaveBeenCalledWith('Test message');
@@ -242,7 +242,7 @@ describe('VoiceInputButton', () => {
     );
     
     // Start recording
-    fireEvent.click(screen.getByRole('button', { name: /mic/i }));
+    fireEvent.click(screen.getByLabelText('Start microphone'));
     
     // Simulate speech recognition error
     act(() => {
@@ -262,9 +262,13 @@ describe('VoiceInputButton', () => {
       />
     );
     
+    // Find buttons by label even when disabled
+    const micButton = screen.getByLabelText('Start microphone');
+    const sendButton = screen.getByLabelText('Send message');
+    
     // Check that buttons are disabled
-    expect(screen.getByRole('button', { name: /mic/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /send/i })).toBeDisabled();
+    expect(micButton).toBeDisabled();
+    expect(sendButton).toBeDisabled();
     
     // Check that text field is disabled
     expect(screen.getByPlaceholderText(/Type a message or press microphone to speak/i)).toBeDisabled();

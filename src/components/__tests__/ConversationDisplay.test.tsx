@@ -4,6 +4,9 @@ import '@testing-library/jest-dom';
 import ConversationDisplay from '../ConversationDisplay';
 import { Message } from '../../models/conversation';
 
+// Mock scrollIntoView
+Element.prototype.scrollIntoView = jest.fn();
+
 describe('ConversationDisplay', () => {
   const mockMessages: Message[] = [
     {

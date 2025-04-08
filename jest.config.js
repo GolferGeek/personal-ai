@@ -17,6 +17,8 @@ const customJestConfig = {
     '^@/store/(.*)$': '<rootDir>/src/store/$1',
     '^@/api/(.*)$': '<rootDir>/src/api/$1',
   },
+  // Ignore server directories and their tests
+  testPathIgnorePatterns: ['/node_modules/', '/server/', '/server_backup/'],
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config

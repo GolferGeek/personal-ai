@@ -10,7 +10,8 @@ import {
   FormControlLabel, 
   Switch, 
   CircularProgress,
-  Divider
+  Divider,
+  FormHelperText
 } from '@mui/material';
 import { ParametersNeededState } from '../models/conversation';
 
@@ -163,6 +164,13 @@ const DynamicForm: React.FC<DynamicFormProps> = ({
               helperText={errors[param.name] || ''}
               required={param.required}
               disabled={isLoading}
+              inputProps={{
+                'data-testid': `${param.name}-input`,
+                'aria-invalid': !!errors[param.name]
+              }}
+              FormHelperTextProps={{
+                sx: { '&.Mui-error': { 'data-testid': `${param.name}-error` } }
+              }}
             />
           )}
         </Box>

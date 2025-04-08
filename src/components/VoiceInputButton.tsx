@@ -183,6 +183,7 @@ const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
         color={isRecording ? "error" : "default"}
         onClick={isRecording ? stopRecording : startRecording}
         disabled={isLoading}
+        aria-label={isRecording ? "Stop recording" : "Start microphone"}
         sx={{ p: '10px' }}
       >
         {isRecording ? <StopIcon /> : <MicIcon />}
@@ -193,6 +194,7 @@ const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
         sx={{ p: '10px' }}
         onClick={handleSendMessage}
         disabled={!transcript.trim() || isLoading}
+        aria-label="Send message"
       >
         <SendIcon />
       </IconButton>
