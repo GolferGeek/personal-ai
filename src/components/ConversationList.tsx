@@ -13,22 +13,23 @@ import {
   Paper 
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { useConversationStore } from '../store/conversationStore';
 import { Conversation } from '../models/conversation';
 
 interface ConversationListProps {
   selectedConversationId: string | null;
   onSelectConversation: (id: string) => void;
   onNewConversation: () => void;
+  conversations: Conversation[];
+  isLoading: boolean;
 }
 
 const ConversationList: React.FC<ConversationListProps> = ({
   selectedConversationId,
   onSelectConversation,
-  onNewConversation
+  onNewConversation,
+  conversations,
+  isLoading
 }) => {
-  const { conversations, isLoadingConversations } = useConversationStore();
-
   // Format date to relative time
   const formatRelativeTime = (timestamp: number) => {
     const now = Date.now();
@@ -85,7 +86,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
       <Divider />
       
       <Box sx={{ overflowY: 'auto', flexGrow: 1 }}>
-        {isLoadingConversations ? (
+        {isLoading ? (
           <Box sx={{ p: 2 }}>
             <Typography variant="body2" color="text.secondary">
               Loading conversations...
