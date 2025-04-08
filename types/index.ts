@@ -48,21 +48,25 @@ export type OrchestratorInput = OrchestratorTextInput | OrchestratorParamsInput;
 
 // --- Orchestrator Response Types --- 
 
-export interface SuccessResponse {
+export interface BaseResponse {
+  conversationId?: string; // ID of the conversation this response belongs to
+}
+
+export interface SuccessResponse extends BaseResponse {
   type: 'success';
   message: string; // The final response message for the user
   // Optional: Add raw agent result if needed
   // agentResult?: any;
 }
 
-export interface ErrorResponse {
+export interface ErrorResponse extends BaseResponse {
   type: 'error';
   message: string; // Error message to display to the user
   // Optional: Add error details for logging
   // errorDetails?: string;
 }
 
-export interface NeedsParametersResponse {
+export interface NeedsParametersResponse extends BaseResponse {
   type: 'needs_parameters';
   agentId: string;
   parameters: ParameterDefinition[]; // The parameters required by the agent

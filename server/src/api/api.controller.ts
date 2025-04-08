@@ -14,6 +14,7 @@ import {
   ValidationPipe,
   HttpException,
   Logger,
+  Headers
 } from '@nestjs/common';
 import { AgentRegistryService } from '../shared/agent-registry.service';
 import { AgentMetadata, ParameterDefinition, OrchestratorInput } from '@/types';
@@ -21,6 +22,7 @@ import { IsObject, IsOptional, IsString, IsEnum, ValidateNested } from 'class-va
 import { Type } from 'class-transformer';
 import { OrchestratorService } from './orchestrator.service';
 import { OrchestratorResponse } from '@/types';
+import { UserService } from '../shared/user.service';
 
 // --- DTOs for Request Validation ---
 class AgentExecutionParamsDto {
@@ -42,6 +44,10 @@ class OrchestrateInputDto {
   @IsObject()
   @IsOptional()
   parameters?: Record<string, any>;
+  
+  @IsString()
+  @IsOptional()
+  conversationId?: string;
 }
 
 // DTO for direct agent execution
@@ -63,7 +69,19 @@ export class ApiController {
   constructor(
     private readonly agentRegistry: AgentRegistryService,
     private readonly orchestratorService: OrchestratorService, // Inject OrchestratorService
+    private readonly userService: UserService,
   ) {}
+
+  private getUserIdFromHeader(userIdHeader: string): string {
+    if (userIdHeader) {
+      return userIdHeader;
+    }
+    
+    // Create anonymous user if no user ID provided
+    const newUser = this.userService.createAnonymousUser();
+    this.logger.log(`Created new anonymous user: ${newUser.id}`);
+    return newUser.id;
+  }
 
   @Get('agents')
   async listAgents(): Promise<AgentMetadata[]> {
@@ -102,6 +120,7 @@ export class ApiController {
   async executeAgent(
     @Param('agentId') agentId: string,
     @Body() body: AgentExecutionDto,
+    @Headers('x-user-id') userIdHeader: string,
   ): Promise<{ result: any }> {
     try {
       this.logger.log(`Executing agent ${agentId} with params:`, body);
@@ -138,10 +157,21 @@ export class ApiController {
 
   @Post('orchestrate')
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true })) // Apply validation
-  async orchestrate(@Body() input: OrchestrateInputDto): Promise<OrchestratorResponse> {
+  async orchestrate(
+    @Body() input: OrchestrateInputDto,
+    @Headers('x-user-id') userIdHeader: string,
+  ): Promise<OrchestratorResponse> {
     try {
+      const userId = this.getUserIdFromHeader(userIdHeader);
       this.logger.log('Orchestrating request:', input);
-      return await this.orchestratorService.handleRequest(input);
+      
+      // Add userId to the input
+      const enrichedInput = {
+        ...input,
+        userId
+      };
+      
+      return await this.orchestratorService.handleRequest(enrichedInput);
     } catch (error) {
       this.logger.error('Error orchestrating request:', error);
       throw new HttpException(

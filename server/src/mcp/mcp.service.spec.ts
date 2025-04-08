@@ -46,8 +46,10 @@ it('should create an McpServer instance on initialization', () => {
         version: '1.0.0',
         capabilities: { tools: {} },
     });
-    expect(service.mcpServer).toBeDefined();
-    expect(service.getMcpServerInstance()).toBe(mockMcpServerInstance);
+    
+    // Use the public getServerInstance method instead of accessing private property
+    expect(service.getServerInstance()).toBeDefined();
+    expect(service.getServerInstance()).toBe(mockMcpServerInstance);
 });
 
 it('should register the get_fixed_data tool on initialization', () => {

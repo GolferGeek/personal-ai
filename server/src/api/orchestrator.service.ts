@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AgentRegistryService } from '../shared/agent-registry.service';
+import { ConversationService } from '../shared/conversation.service';
 import {
   OrchestratorResponse,
   SuccessResponse,
@@ -13,6 +14,8 @@ export class OrchestrationInputDto {
   query?: string;
   agentId?: string;
   parameters?: Record<string, any>;
+  userId?: string;
+  conversationId?: string;
 }
 // --- End Input DTO ---
 
@@ -20,7 +23,10 @@ export class OrchestrationInputDto {
 export class OrchestratorService {
   private readonly logger = new Logger(OrchestratorService.name);
 
-  constructor(private agentRegistryService: AgentRegistryService) {}
+  constructor(
+    private agentRegistryService: AgentRegistryService,
+    private conversationService: ConversationService,
+  ) {}
 
   /**
    * Handles incoming requests with real implementation.
@@ -28,44 +34,100 @@ export class OrchestratorService {
   async handleRequest(input: OrchestrationInputDto): Promise<OrchestratorResponse> {
     this.logger.log(`Handling request: ${JSON.stringify(input)}`);
 
+    // Get or create conversation if userId is provided
+    let conversationId = input.conversationId;
+    if (input.userId && !conversationId) {
+      // Look for recent conversations or create a new one
+      const userConversations = this.conversationService.listConversationsForUser(input.userId);
+      
+      if (userConversations.length > 0) {
+        // Use the most recent conversation
+        conversationId = userConversations[0].id;
+      } else {
+        // Create a new conversation
+        const newConversation = this.conversationService.createConversation(input.userId);
+        conversationId = newConversation.id;
+      }
+    }
+
     try {
+      // Store user query in conversation history if available
+      if (input.query && conversationId) {
+        this.conversationService.addMessage(
+          conversationId,
+          input.query,
+          'user'
+        );
+      }
+
+      let response: OrchestratorResponse;
+
       // Case 1: Text query handling
       if (input.query) {
         const query = input.query.toLowerCase();
         
         // Keyword matching for "reverse"
         if (query.includes('reverse')) {
-          return await this.handleReverseCommand(query);
+          response = await this.handleReverseCommand(query);
         }
         
         // Keyword matching for "mcp data"
-        if (query.includes('mcp data')) {
-          return await this.handleMcpDataCommand();
+        else if (query.includes('mcp data')) {
+          response = await this.handleMcpDataCommand();
         }
         
         // Handle NLU miss - no matching intent
-        return {
-          type: 'success',
-          message: `I'm not sure how to handle: "${input.query}". Try saying "reverse [some text]" or "get mcp data".`
-        };
+        else {
+          response = {
+            type: 'success',
+            message: `I'm not sure how to handle: "${input.query}". Try saying "reverse [some text]" or "get mcp data".`
+          };
+        }
       } 
       // Case 2: Direct agent execution with parameters
       else if (input.agentId && input.parameters) {
-        return await this.executeAgentWithParams(input.agentId, input.parameters);
+        response = await this.executeAgentWithParams(input.agentId, input.parameters);
       } 
       // Case 3: Invalid input
       else {
-        return {
+        response = {
           type: 'error',
           message: 'Invalid input: Missing query or agentId/parameters.'
         };
       }
+
+      // Store system response in conversation history if available
+      if (conversationId && response.type !== 'needs_parameters') {
+        this.conversationService.addMessage(
+          conversationId,
+          response.message,
+          'assistant'
+        );
+      }
+
+      // Add conversation ID to the response
+      return {
+        ...response,
+        conversationId,
+      };
     } catch (error) {
       this.logger.error('Error in orchestrator:', error);
-      return {
+      const errorResponse: ErrorResponse = {
         type: 'error',
-        message: `Error: ${error.message || 'An unexpected error occurred.'}`
+        message: `Error: ${error.message || 'An unexpected error occurred.'}`,
+        conversationId
       };
+
+      // Store error in conversation history if available
+      if (conversationId) {
+        this.conversationService.addMessage(
+          conversationId,
+          errorResponse.message,
+          'assistant'
+        );
+      }
+
+      return errorResponse;
     }
   }
 
