@@ -1,1 +1,0 @@
-../dist/server/src/main.js
