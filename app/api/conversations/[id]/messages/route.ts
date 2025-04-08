@@ -22,8 +22,9 @@ export async function GET(
   context: { params: { id: string } }
 ) {
   try {
+    // Properly await the params
     const { params } = context;
-    const id = params.id; // Explicitly extract the ID
+    const id = await Promise.resolve(params.id);
     
     const headers = getForwardedHeaders(req);
     
@@ -58,8 +59,9 @@ export async function POST(
   context: { params: { id: string } }
 ) {
   try {
+    // Properly await the params
     const { params } = context;
-    const id = params.id; // Explicitly extract the ID
+    const id = await Promise.resolve(params.id);
     
     const body = await req.json();
     const headers = getForwardedHeaders(req);
@@ -70,10 +72,18 @@ export async function POST(
       headers: Object.fromEntries(Object.entries(headers))
     });
     
+    // Adjust the message format to match what the backend expects
+    const messagePayload = {
+      content: body.content,
+      role: body.role || 'user'
+    };
+    
+    console.log('Sending message payload:', messagePayload);
+    
     const response = await fetch(`${BACKEND_URL}/api/conversations/${id}/messages`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(body),
+      body: JSON.stringify(messagePayload),
     });
     
     if (!response.ok) {
