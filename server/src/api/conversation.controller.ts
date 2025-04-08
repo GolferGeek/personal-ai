@@ -158,16 +158,15 @@ export class ConversationController {
   addMessage(
     @Param('id') id: string,
     @Headers('x-user-id') userIdHeader: string,
-    @Body() addMessageDto: AddMessageDto,
+    @Body() body: any, // Change to accept any payload format
   ) {
-    // Log the raw DTO to see what's coming in
-    console.log('Received message DTO:', {
-      rawDto: addMessageDto,
-      content: addMessageDto.content,
-      contentType: typeof addMessageDto.content,
-      role: addMessageDto.role,
-      dtoKeys: Object.keys(addMessageDto),
-      jsonString: JSON.stringify(addMessageDto)
+    // Log the raw body to see what's coming in
+    console.log('Received raw body:', {
+      body,
+      bodyType: typeof body,
+      bodyIsObject: typeof body === 'object',
+      bodyKeys: typeof body === 'object' ? Object.keys(body) : [],
+      bodyJson: JSON.stringify(body)
     });
     
     const userId = this.getUserIdFromHeader(userIdHeader);
@@ -182,27 +181,54 @@ export class ConversationController {
       throw new NotFoundException(`Conversation with ID ${id} not found`);
     }
     
-    // Enhanced content checking
-    if (!addMessageDto.content || typeof addMessageDto.content !== 'string' || addMessageDto.content.trim() === '') {
-      console.error('Message content is invalid:', {
-        content: addMessageDto.content,
-        type: typeof addMessageDto.content
-      });
-      throw new BadRequestException('Message content is required and must be a non-empty string');
+    // Try multiple ways to extract content
+    let content: string | undefined;
+    let role: MessageRole = 'user';
+    
+    // Option 1: Check if body has content property
+    if (body && typeof body === 'object' && 'content' in body) {
+      content = String(body.content).trim();
+      role = (body.role as MessageRole) || 'user';
+    } 
+    // Option 2: Check if body is directly the content
+    else if (typeof body === 'string') {
+      content = body.trim();
+    }
+    // Option 3: Parse JSON if body is a string that looks like JSON
+    else if (typeof body === 'string' && body.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(body);
+        if (parsed && typeof parsed === 'object' && 'content' in parsed) {
+          content = String(parsed.content).trim();
+          role = (parsed.role as MessageRole) || 'user';
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
     }
     
-    // Ensure content is a string and trimmed
-    const content = String(addMessageDto.content).trim();
-    const role = addMessageDto.role || 'user';
+    console.log('Extracted message content:', {
+      content,
+      contentType: typeof content,
+      role
+    });
     
-    console.log('Sending to service:', { content, role });
+    // Enhanced content checking
+    if (!content || content.trim() === '') {
+      console.error('Message content is missing or empty');
+      throw new BadRequestException('Message content is required and must be a non-empty string');
+    }
     
     try {
       const message = this.conversationService.addMessage(
         id,
         content,
-        role as MessageRole,
+        role,
       );
+      
+      if (!message) {
+        throw new Error('Failed to add message to conversation');
+      }
       
       return message;
     } catch (error) {
