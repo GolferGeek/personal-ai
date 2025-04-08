@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Make sure we're using the correct URL
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // Helper function to forward headers
@@ -72,7 +73,8 @@ export async function POST(
       headers: Object.fromEntries(Object.entries(headers))
     });
     
-    // Adjust the message format to match what the backend expects
+    // Ensure the message payload matches what the backend expects
+    // The backend expects an AddMessageDto with content and optional role
     const messagePayload = {
       content: body.content,
       role: body.role || 'user'
