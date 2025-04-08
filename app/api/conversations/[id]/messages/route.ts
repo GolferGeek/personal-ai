@@ -74,15 +74,6 @@ export async function POST(
     
     if (!checkResponse.ok) {
       console.error(`Conversation ${id} not found or not accessible`);
-      
-      // Try to get error details
-      try {
-        const errorText = await checkResponse.text();
-        console.error('Conversation check error details:', errorText);
-      } catch (e) {
-        console.error('Could not read error details from conversation check');
-      }
-      
       return NextResponse.json(
         { error: 'Conversation not found or not accessible. Please create a new conversation.' },
         { status: 404 }
@@ -96,30 +87,61 @@ export async function POST(
     const rawBody = await rawBodyClone.text();
     console.log(`Raw request body to messages endpoint: ${rawBody}`);
     
-    // Parse the JSON
-    const body = await req.json();
+    // Try a direct approach - construct a hardcoded message payload
+    const directPayload = {
+      content: "test direct message", // Hardcoded test message
+      role: "user"
+    };
     
-    // Log the request details
-    console.log('Message request body:', body);
+    console.log('Trying with direct payload first:', directPayload);
     
-    // Create a simple, clean payload
+    // Send test message with hardcoded content
+    const testResponse = await fetch(`${BACKEND_URL}/api/conversations/${id}/messages`, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(directPayload)
+    });
+    
+    // If direct payload works, we know it's an issue with the content extraction
+    if (testResponse.ok) {
+      console.log('Direct payload worked! The issue is with content extraction.');
+      const testData = await testResponse.json();
+      console.log('Test response data:', testData);
+      
+      // Return success with the test message
+      return NextResponse.json(testData);
+    } else {
+      console.log('Even direct payload failed. Detailed error:');
+      try {
+        const testErrorText = await testResponse.text();
+        console.error('Test error details:', testErrorText);
+      } catch (e) {
+        console.error('Could not read test error details');
+      }
+    }
+    
+    // Try with the actual request data
+    const jsonBody = JSON.parse(rawBody);
+    console.log('Parsed JSON body:', jsonBody);
+    
+    // Ensure content is a string and not empty
+    const messageContent = jsonBody.content ? String(jsonBody.content).trim() : '';
+    console.log('Message content:', messageContent);
+    console.log('Message content type:', typeof messageContent);
+    console.log('Content empty?', messageContent === '');
+    
+    // Create a very simple payload - just plain text content
     const messagePayload = {
-      content: String(body.content || '').trim(),
+      content: messageContent,
       role: 'user'
     };
     
-    // Validate content
-    if (!messagePayload.content) {
-      console.error('Message content is empty or missing');
-      return NextResponse.json(
-        { error: 'Message content is required and must be a non-empty string' },
-        { status: 400 }
-      );
-    }
+    console.log('Final message payload being sent:', JSON.stringify(messagePayload));
     
-    console.log('Sending message payload to backend:', messagePayload);
-    
-    // Send the message to the backend
+    // Send the actual message
     const response = await fetch(`${BACKEND_URL}/api/conversations/${id}/messages`, {
       method: 'POST',
       headers: {

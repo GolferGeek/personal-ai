@@ -93,7 +93,7 @@ export class ConversationService {
       role,
       createdAt: new Date(),
     };
-
+    
     const conversationMessages = this.messages.get(conversationId) || [];
     conversationMessages.push(message);
     this.messages.set(conversationId, conversationMessages);
@@ -101,7 +101,7 @@ export class ConversationService {
     // Update the conversation's updatedAt timestamp
     conversation.updatedAt = new Date();
     this.conversations.set(conversationId, conversation);
-
+    
     return message;
   }
 

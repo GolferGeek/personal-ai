@@ -17,6 +17,7 @@ import { ConversationService } from '../shared/conversation.service';
 import { UserService } from '../shared/user.service';
 import { MessageRole } from '../shared/models';
 import { OrchestratorService } from './orchestrator.service';
+import { Message } from '../shared/models';
 
 class CreateConversationDto {
   title?: string;
@@ -287,5 +288,109 @@ export class ConversationController {
     }
     
     return this.conversationService.getMessagesForConversation(id);
+  }
+
+  @Post(':id/messages/sync')
+  async addMessageSync(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Headers('x-user-id') userIdHeader: string,
+  ) {
+    const userId = this.getUserIdFromHeader(userIdHeader);
+    const conversation = this.conversationService.getConversation(id);
+    
+    if (!conversation) {
+      throw new NotFoundException(`Conversation with ID ${id} not found`);
+    }
+    
+    // Ensure the user has access to this conversation
+    if (conversation.userId !== userId) {
+      throw new NotFoundException(`Conversation with ID ${id} not found`);
+    }
+    
+    let content: string = '';
+    let role: MessageRole = 'user';
+    
+    // Option 1: Extract content from structured payload
+    if (body && typeof body === 'object' && 'content' in body) {
+      content = String(body.content).trim();
+      role = (body.role as MessageRole) || 'user';
+    }
+    // Option 2: Treat entire body as content if it's a string
+    else if (typeof body === 'string') {
+      content = body.trim();
+    }
+    // Option 3: Parse JSON if body is a string that looks like JSON
+    else if (typeof body === 'string' && body.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(body);
+        if (parsed && typeof parsed === 'object' && 'content' in parsed) {
+          content = String(parsed.content).trim();
+          role = (parsed.role as MessageRole) || 'user';
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
+    }
+    
+    console.log('Extracted message content (sync):', {
+      content,
+      contentType: typeof content,
+      role
+    });
+    
+    // Enhanced content checking
+    if (!content || content.trim() === '') {
+      console.error('Message content is missing or empty');
+      throw new BadRequestException('Message content is required and must be a non-empty string');
+    }
+    
+    try {
+      // 1. First save the message to the conversation
+      const userMessage = this.conversationService.addMessage(
+        id,
+        content,
+        role,
+      );
+      
+      if (!userMessage) {
+        throw new Error('Failed to add message to conversation');
+      }
+      
+      this.logger.log(`Processing message with orchestrator (sync): ${content}`);
+      
+      // 2. Process with orchestrator and WAIT for the response
+      const response = await this.orchestratorService.handleRequest({
+        query: content,
+        conversationId: id,
+        userId
+      });
+      
+      this.logger.log(`Orchestrator response received (sync): ${JSON.stringify(response)}`);
+      
+      let assistantMessage: Message | undefined = undefined;
+      
+      // Save the assistant's response to the conversation
+      if (response.type === 'success' || response.type === 'error') {
+        // Add assistant's response to the conversation
+        assistantMessage = this.conversationService.addMessage(
+          id,
+          response.message,
+          'assistant'
+        );
+        
+        this.logger.log('Added assistant response to conversation (sync):', assistantMessage);
+      }
+      
+      // 3. Return both the user message and assistant message
+      return {
+        userMessage,
+        assistantMessage,
+        response
+      };
+    } catch (error) {
+      console.error('Error in addMessageSync:', error);
+      throw new BadRequestException(error.message || 'Failed to process message');
+    }
   }
 } 

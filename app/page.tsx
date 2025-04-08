@@ -8,52 +8,23 @@ import VoiceInputButton from '../src/components/VoiceInputButton';
 import ErrorDisplay from '../src/components/ErrorDisplay';
 import DynamicForm from '../src/components/DynamicForm';
 import { useConversationStore } from '../src/store/conversationStore';
-import { useMessages } from '../src/hooks/useMessages';
 import { useConversations } from '../src/hooks/useConversations';
-import { useQueryClient } from '@tanstack/react-query';
+import { useConversationService } from '../src/hooks/useConversationService';
 
 export default function Home() {
   const store = useConversationStore();
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const queryClient = useQueryClient();
   
-  // Use React Query hooks for data fetching
+  // Use React Query hook for conversations list
   const { data: conversations = [], isLoading: isLoadingConversations } = useConversations();
-  const { 
-    data: messages = [], 
-    isLoading: isLoadingMessages,
-    isFetching: isFetchingMessages,
-    refetch: refetchMessages
-  } = useMessages(currentConversationId);
   
-  // Track if we've refetched messages after a new message is sent
-  const [needsRefetch, setNeedsRefetch] = useState(false);
-  const [isRefetching, setIsRefetching] = useState(false);
+  // Use our service hook for all conversation interactions
+  const conversationService = useConversationService(currentConversationId);
   
   // Update the current conversation ID when the store's ID changes
   useEffect(() => {
     setCurrentConversationId(store.currentConversationId);
   }, [store.currentConversationId]);
-  
-  // Manually refetch messages when needed (after sending a message)
-  useEffect(() => {
-    // Only refetch if we have a message to fetch and we're not already refetching
-    if (needsRefetch && !isRefetching && currentConversationId && !store.isProcessing) {
-      const doRefetch = async () => {
-        setIsRefetching(true);
-        await refetchMessages();
-        setNeedsRefetch(false);
-        setIsRefetching(false);
-      };
-      
-      // Wait a bit to ensure the backend has had time to process
-      const timer = setTimeout(() => {
-        doRefetch();
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [needsRefetch, isRefetching, currentConversationId, store.isProcessing, refetchMessages]);
   
   // Initialize conversations if needed
   useEffect(() => {
@@ -61,12 +32,12 @@ export default function Home() {
     if (conversations.length > 0 && !currentConversationId) {
       const firstConversation = conversations[0];
       console.log('Auto-selecting first conversation:', firstConversation.id);
-      store.selectConversation(firstConversation.id);
+      conversationService.selectConversation(firstConversation.id);
     } 
     // If we have no conversations, create a new one
     else if (conversations.length === 0 && !isLoadingConversations) {
       console.log('No conversations found, creating new conversation');
-      store.createConversation()
+      conversationService.createConversation()
         .then(newId => {
           if (newId) {
             console.log('Created new conversation:', newId);
@@ -75,42 +46,20 @@ export default function Home() {
           }
         });
     }
-  }, [conversations, currentConversationId, isLoadingConversations, store]);
+  }, [conversations, currentConversationId, isLoadingConversations, conversationService]);
+
+  // Debug the store state
+  useEffect(() => {
+    console.log('Current store messages:', store.messages);
+  }, [store.messages]);
 
   const handleVoiceTranscript = async (transcript: string) => {
-    console.log('Voice transcript:', transcript);
-    
-    // Add user message to the UI immediately to avoid duplication
-    const userMessage = {
-      id: `local-${Date.now()}`,
-      role: 'user',
-      content: transcript,
-      timestamp: Date.now()
-    };
-    
-    // Manually update messages array to include the new message
-    queryClient.setQueryData(['messages', currentConversationId], 
-      (old: any) => [...(old || []), userMessage]);
-    
-    // Send the message
-    await store.sendMessage(transcript);
-    
-    // Schedule a refetch to get the assistant's response
-    setNeedsRefetch(true);
+    await conversationService.sendMessage(transcript);
   };
 
   const handleFormSubmit = async (agentId: string, formData: Record<string, any>) => {
-    console.log('Form submitted:', agentId, formData);
-    await store.sendAgentParameters(agentId, formData);
-    
-    // Schedule a refetch to get the assistant's response
-    setNeedsRefetch(true);
+    await conversationService.sendAgentParameters(agentId, formData);
   };
-
-  // Compute actual loading state to avoid spinner staying forever
-  const isActuallyLoading = isLoadingMessages || 
-                           (isRefetching && needsRefetch) || 
-                           store.isProcessing;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -126,8 +75,8 @@ export default function Home() {
         {/* Conversation List */}
         <ConversationList
           selectedConversationId={currentConversationId}
-          onSelectConversation={store.selectConversation}
-          onNewConversation={() => store.createConversation()}
+          onSelectConversation={conversationService.selectConversation}
+          onNewConversation={() => conversationService.createConversation()}
           conversations={conversations}
           isLoading={isLoadingConversations}
         />
@@ -143,32 +92,34 @@ export default function Home() {
           maxHeight: 'calc(100vh - 64px)' // 64px is the AppBar height
         }}>
           {/* Error Display */}
-          {store.error && <ErrorDisplay errorMessage={store.error} />}
+          {conversationService.error && (
+            <ErrorDisplay errorMessage={conversationService.error} />
+          )}
 
           {/* Parameters Form */}
-          {store.parametersNeeded && (
+          {conversationService.parametersNeeded && (
             <DynamicForm
-              parametersNeeded={store.parametersNeeded}
+              parametersNeeded={conversationService.parametersNeeded}
               onSubmit={handleFormSubmit}
-              onCancel={store.clearParametersNeeded}
-              isLoading={store.isProcessing}
+              onCancel={conversationService.clearParametersNeeded}
+              isLoading={conversationService.isProcessing}
             />
           )}
 
           {/* Conversation Messages */}
           <Box sx={{ flexGrow: 1, overflow: 'hidden', mb: 2 }}>
             <ConversationDisplay 
-              messages={messages} 
-              isLoading={isActuallyLoading}
+              messages={store.messages} 
+              isLoading={conversationService.isProcessing}
             />
           </Box>
 
           {/* Voice Input Button */}
           <Box sx={{ pb: 2 }}>
             <VoiceInputButton
-              isLoading={isActuallyLoading}
+              isLoading={conversationService.isProcessing}
               onTranscript={handleVoiceTranscript}
-              onError={store.setError}
+              onError={conversationService.setError}
             />
           </Box>
         </Box>

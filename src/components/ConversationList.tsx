@@ -33,80 +33,95 @@ const ConversationList: React.FC<ConversationListProps> = ({
   isLoading
 }) => {
   // Format date to relative time
-  const formatRelativeTime = (timestamp: number | string | Date) => {
+  const formatRelativeTime = (timestamp: number | string | Date): string => {
     // Convert to timestamp if needed
     let timeMs: number;
     
-    if (typeof timestamp === 'string') {
-      timeMs = new Date(timestamp).getTime();
-    } else if (timestamp instanceof Date) {
-      timeMs = timestamp.getTime();
-    } else {
-      timeMs = timestamp;
-    }
-    
-    // Handle invalid dates
-    if (isNaN(timeMs)) {
+    try {
+      if (typeof timestamp === 'string') {
+        timeMs = new Date(timestamp).getTime();
+      } else if (timestamp instanceof Date) {
+        timeMs = timestamp.getTime();
+      } else {
+        timeMs = timestamp;
+      }
+      
+      // Handle invalid dates
+      if (isNaN(timeMs)) {
+        return 'Recently';
+      }
+      
+      const now = Date.now();
+      const diff = now - timeMs;
+      
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      
+      if (days > 0) {
+        return days === 1 ? 'Yesterday' : `${days}d ago`;
+      } else if (hours > 0) {
+        return `${hours}h ago`;
+      } else if (minutes > 0) {
+        return `${minutes}m ago`;
+      } else {
+        return 'Just now';
+      }
+    } catch {
+      // Handle any unexpected errors in date formatting
       return 'Recently';
-    }
-    
-    const now = Date.now();
-    const diff = now - timeMs;
-    
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    
-    if (days > 0) {
-      return days === 1 ? 'Yesterday' : `${days}d ago`;
-    } else if (hours > 0) {
-      return `${hours}h ago`;
-    } else if (minutes > 0) {
-      return `${minutes}m ago`;
-    } else {
-      return 'Just now';
     }
   };
 
   // Find the most relevant timestamp for a conversation
   const getConversationTimestamp = (conversation: Conversation): number => {
-    // Try different properties in order of preference
-    if (conversation.lastUpdated) {
-      return conversation.lastUpdated;
+    try {
+      // Try different properties in order of preference
+      if (conversation?.lastUpdated) {
+        return conversation.lastUpdated;
+      }
+      
+      if (conversation?.updatedAt) {
+        return new Date(conversation.updatedAt).getTime();
+      }
+      
+      if (conversation?.createdAt) {
+        return new Date(conversation.createdAt).getTime();
+      }
+      
+      // Fall back to now
+      return Date.now();
+    } catch {
+      // Handle any unexpected errors
+      return Date.now();
     }
-    
-    if (conversation.updatedAt) {
-      return new Date(conversation.updatedAt).getTime();
-    }
-    
-    if (conversation.createdAt) {
-      return new Date(conversation.createdAt).getTime();
-    }
-    
-    // Fall back to now
-    return Date.now();
   };
 
   // Generate conversation title
   const getConversationTitle = (conversation: Conversation): string => {
-    // If we have a title, use it
-    if (conversation.title) {
-      return conversation.title;
-    }
-    
-    // Try to find first user message to use as title
-    if (conversation.messages && conversation.messages.length > 0) {
-      const firstUserMessage = conversation.messages.find(m => m.role === 'user');
-      if (firstUserMessage?.content) {
-        const content = firstUserMessage.content.trim();
-        // Truncate if too long
-        return content.length > 30 ? `${content.substring(0, 30)}...` : content;
+    try {
+      // If we have a title, use it
+      if (conversation?.title) {
+        return conversation.title;
       }
+      
+      // Try to find first user message to use as title
+      if (conversation?.messages && conversation.messages.length > 0) {
+        const firstUserMessage = conversation.messages.find(m => m.role === 'user');
+        if (firstUserMessage?.content) {
+          const content = firstUserMessage.content.trim();
+          // Truncate if too long
+          return content.length > 30 ? `${content.substring(0, 30)}...` : content;
+        }
+      }
+      
+      // Default fallback
+      return 'New Conversation';
+    } catch {
+      // Handle any unexpected errors
+      return 'New Conversation';
     }
-    
-    // Default fallback
-    return 'New Conversation';
   };
 
   // Render empty state
@@ -158,6 +173,51 @@ const ConversationList: React.FC<ConversationListProps> = ({
     </Box>
   );
 
+  // Render conversation list items
+  const renderConversationItems = () => {
+    if (!Array.isArray(conversations) || conversations.length === 0) {
+      return renderEmptyState();
+    }
+    
+    return (
+      <List disablePadding>
+        {conversations.map((conversation: Conversation) => {
+          if (!conversation || !conversation.id) {
+            return null; // Skip invalid conversations
+          }
+          
+          // Get the conversation title and timestamp
+          const title = getConversationTitle(conversation);
+          const timestamp = getConversationTimestamp(conversation);
+          
+          return (
+            <ListItem key={conversation.id} disablePadding divider>
+              <ListItemButton 
+                selected={selectedConversationId === conversation.id}
+                onClick={() => onSelectConversation(conversation.id)}
+                sx={{ 
+                  '&.Mui-selected': {
+                    backgroundColor: 'action.selected'
+                  }
+                }}
+                aria-selected={selectedConversationId === conversation.id}
+              >
+                <ListItemText 
+                  primary={title}
+                  secondary={formatRelativeTime(timestamp)}
+                  primaryTypographyProps={{
+                    noWrap: true,
+                    style: { fontWeight: selectedConversationId === conversation.id ? 600 : 400 }
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
+      </List>
+    );
+  };
+
   return (
     <Paper 
       elevation={0} 
@@ -187,43 +247,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
       <Divider />
       
       <Box sx={{ overflowY: 'auto', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        {isLoading ? (
-          renderLoadingState()
-        ) : conversations.length === 0 ? (
-          renderEmptyState()
-        ) : (
-          <List disablePadding>
-            {conversations.map((conversation: Conversation) => {
-              // Get the conversation title and timestamp
-              const title = getConversationTitle(conversation);
-              const timestamp = getConversationTimestamp(conversation);
-              
-              return (
-                <ListItem key={conversation.id} disablePadding divider>
-                  <ListItemButton 
-                    selected={selectedConversationId === conversation.id}
-                    onClick={() => onSelectConversation(conversation.id)}
-                    sx={{ 
-                      '&.Mui-selected': {
-                        backgroundColor: 'action.selected'
-                      }
-                    }}
-                    aria-selected={selectedConversationId === conversation.id}
-                  >
-                    <ListItemText 
-                      primary={title}
-                      secondary={formatRelativeTime(timestamp)}
-                      primaryTypographyProps={{
-                        noWrap: true,
-                        style: { fontWeight: selectedConversationId === conversation.id ? 600 : 400 }
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              );
-            })}
-          </List>
-        )}
+        {isLoading ? renderLoadingState() : renderConversationItems()}
       </Box>
     </Paper>
   );

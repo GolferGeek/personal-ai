@@ -5,7 +5,8 @@ import apiClient from '../api/apiClient';
 import { Message } from '../models/conversation';
 
 /**
- * Hook for fetching messages for a conversation with real-time updates
+ * Hook for fetching messages for a conversation
+ * Only fetches once when a conversation is selected
  */
 export function useMessages(conversationId: string | null) {
   return useQuery({
@@ -14,7 +15,7 @@ export function useMessages(conversationId: string | null) {
       if (!conversationId) return [];
       
       try {
-        console.log(`Fetching messages for conversation ${conversationId}`);
+        console.log(`Fetching initial messages for conversation ${conversationId}`);
         const messages = await apiClient.getMessages(conversationId);
         
         // Process the timestamps to make sure they're numbers
@@ -30,8 +31,10 @@ export function useMessages(conversationId: string | null) {
       }
     },
     enabled: !!conversationId, // Only run the query if we have a conversation ID
-    refetchInterval: false, // Disable automatic refetching
+    refetchOnMount: true,      // Fetch when the component mounts
     refetchOnWindowFocus: false, // Don't refetch on window focus
-    staleTime: Infinity, // Consider data fresh indefinitely
+    refetchOnReconnect: false, // Don't refetch on reconnect
+    staleTime: Infinity,       // Consider data fresh indefinitely
+    gcTime: Infinity,          // Never garbage collect the data
   });
 } 

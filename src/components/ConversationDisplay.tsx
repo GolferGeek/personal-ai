@@ -38,6 +38,12 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Debug received props
+  useEffect(() => {
+    console.log('ConversationDisplay received messages:', messages);
+    console.log('ConversationDisplay isLoading:', isLoading);
+  }, [messages, isLoading]);
+
   // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current && typeof messagesEndRef.current.scrollIntoView === 'function') {

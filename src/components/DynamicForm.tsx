@@ -10,14 +10,18 @@ import {
   FormControlLabel, 
   Switch, 
   CircularProgress,
-  Divider,
-  FormHelperText
+  Divider
 } from '@mui/material';
 import { ParametersNeededState } from '../models/conversation';
 
+// Type definitions for form data and errors
+type FormValue = string | number | boolean;
+type FormData = Record<string, FormValue>;
+type FormErrors = Record<string, string>;
+
 interface DynamicFormProps {
   parametersNeeded: ParametersNeededState;
-  onSubmit: (agentId: string, formData: Record<string, any>) => void;
+  onSubmit: (agentId: string, formData: FormData) => void;
   onCancel: () => void;
   isLoading?: boolean;
 }
@@ -29,12 +33,12 @@ const DynamicForm: React.FC<DynamicFormProps> = ({
   isLoading = false
 }) => {
   // Initialize form data based on parameters with defaults
-  const [formData, setFormData] = useState<Record<string, any>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formData, setFormData] = useState<FormData>({});
+  const [errors, setErrors] = useState<FormErrors>({});
 
   // Reset form data when parameters change
   useEffect(() => {
-    const initialData: Record<string, any> = {};
+    const initialData: FormData = {};
     parametersNeeded.parameters.forEach(param => {
       // Set default value based on parameter type if available
       initialData[param.name] = param.default !== undefined 
@@ -49,8 +53,8 @@ const DynamicForm: React.FC<DynamicFormProps> = ({
     setErrors({});
   }, [parametersNeeded]);
 
-  const handleInputChange = (name: string, value: any, type: string) => {
-    let processedValue = value;
+  const handleInputChange = (name: string, value: FormValue, type: string) => {
+    let processedValue: FormValue = value;
     
     // Convert value based on expected type
     if (type === 'number' && typeof value === 'string') {
@@ -75,7 +79,7 @@ const DynamicForm: React.FC<DynamicFormProps> = ({
   };
 
   const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
+    const newErrors: FormErrors = {};
     
     parametersNeeded.parameters.forEach(param => {
       // Check required fields
@@ -83,7 +87,7 @@ const DynamicForm: React.FC<DynamicFormProps> = ({
         if (
           formData[param.name] === undefined || 
           formData[param.name] === '' ||
-          (param.type === 'number' && isNaN(formData[param.name]))
+          (param.type === 'number' && isNaN(Number(formData[param.name])))
         ) {
           newErrors[param.name] = 'This field is required';
         }
@@ -109,7 +113,7 @@ const DynamicForm: React.FC<DynamicFormProps> = ({
     
     if (validateForm()) {
       // Convert empty strings for number fields to actual numbers with value 0
-      const processedData = { ...formData };
+      const processedData: FormData = { ...formData };
       parametersNeeded.parameters.forEach(param => {
         if (param.type === 'number' && processedData[param.name] === '') {
           processedData[param.name] = 0;
@@ -188,7 +192,7 @@ const DynamicForm: React.FC<DynamicFormProps> = ({
           type="submit" 
           variant="contained" 
           disabled={isLoading}
-          endIcon={isLoading && <CircularProgress size={20} color="inherit" />}
+          endIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
         >
           Submit
         </Button>
