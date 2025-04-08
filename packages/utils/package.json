@@ -17,12 +17,12 @@
     "test": "jest"
   },
   "dependencies": {
-    "@personal-ai/models": "workspace:*"
+    "@personal-ai/models": "0.1.0"
   },
   "devDependencies": {
-    "@personal-ai/config-eslint": "workspace:*",
-    "@personal-ai/config-jest": "workspace:*",
-    "@personal-ai/config-typescript": "workspace:*",
+    "@personal-ai/config-eslint": "0.1.0",
+    "@personal-ai/config-jest": "0.1.0",
+    "@personal-ai/config-typescript": "0.1.0",
     "@types/jest": "^29.5.14",
     "eslint": "^9",
     "jest": "^29.7.0",

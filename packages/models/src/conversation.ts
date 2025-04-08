@@ -1,15 +1,18 @@
 /**
  * Message role type definition
  */
-export type MessageRole = 'user' | 'assistant' | 'system';
+export type MessageRole = 'user' | 'assistant' | 'system' | 'error';
 
 /**
  * Message interface
  */
 export interface Message {
+  id?: string;
   role: MessageRole;
   content: string;
   timestamp?: number;
+  conversationId?: string;
+  createdAt?: Date | string;
 }
 
 /**
@@ -18,9 +21,11 @@ export interface Message {
 export interface Conversation {
   id: string;
   title?: string;
-  messages: Message[];
-  createdAt: number;
-  lastUpdated: number;
+  messages?: Message[];
+  lastUpdated?: number;
+  userId?: string;
+  createdAt?: Date | string | number;
+  updatedAt?: Date | string | number;
   model?: string;
 }
 
@@ -40,9 +45,9 @@ export interface AgentParameter {
   name: string;
   type: 'string' | 'boolean' | 'number';
   label: string;
+  description?: string;
   required?: boolean;
   default?: string | boolean | number;
-  description?: string;
 }
 
 /**
@@ -53,4 +58,21 @@ export interface Agent {
   name: string;
   description: string;
   parameters?: AgentParameter[];
+}
+
+/**
+ * Parameters needed state
+ */
+export interface ParametersNeededState {
+  agentId: string;
+  parameters: AgentParameter[];
+}
+
+/**
+ * User identity model
+ */
+export interface UserIdentity {
+  id: string;
+  createdAt: Date | string;
+  preferences?: Record<string, any>;
 } 

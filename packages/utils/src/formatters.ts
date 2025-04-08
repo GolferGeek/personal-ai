@@ -1,37 +1,48 @@
+import { Conversation } from '@personal-ai/models';
+
 /**
  * Format a timestamp into a human-readable relative time
  * @param timestamp - Unix timestamp in milliseconds
  * @returns Formatted relative time string
  */
-export function formatRelativeTime(timestamp: number): string {
-  if (!timestamp) return '';
+export function formatRelativeTime(timestamp: number | string | Date): string {
+  // Convert to timestamp if needed
+  let timeMs: number;
   
-  const msPerMinute = 60 * 1000;
-  const msPerHour = msPerMinute * 60;
-  const msPerDay = msPerHour * 24;
-  const msPerMonth = msPerDay * 30;
-  const msPerYear = msPerDay * 365;
-  
-  const elapsed = Date.now() - timestamp;
-  
-  if (elapsed < msPerMinute) {
-    const seconds = Math.round(elapsed / 1000);
-    return `${seconds} second${seconds !== 1 ? 's' : ''} ago`;
-  } else if (elapsed < msPerHour) {
-    const minutes = Math.round(elapsed / msPerMinute);
-    return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
-  } else if (elapsed < msPerDay) {
-    const hours = Math.round(elapsed / msPerHour);
-    return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
-  } else if (elapsed < msPerMonth) {
-    const days = Math.round(elapsed / msPerDay);
-    return `${days} day${days !== 1 ? 's' : ''} ago`;
-  } else if (elapsed < msPerYear) {
-    const months = Math.round(elapsed / msPerMonth);
-    return `${months} month${months !== 1 ? 's' : ''} ago`;
-  } else {
-    const years = Math.round(elapsed / msPerYear);
-    return `${years} year${years !== 1 ? 's' : ''} ago`;
+  try {
+    if (typeof timestamp === 'string') {
+      timeMs = new Date(timestamp).getTime();
+    } else if (timestamp instanceof Date) {
+      timeMs = timestamp.getTime();
+    } else {
+      timeMs = timestamp;
+    }
+    
+    // Handle invalid dates
+    if (isNaN(timeMs)) {
+      return 'Recently';
+    }
+    
+    const now = Date.now();
+    const diff = now - timeMs;
+    
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) {
+      return days === 1 ? 'Yesterday' : `${days}d ago`;
+    } else if (hours > 0) {
+      return `${hours}h ago`;
+    } else if (minutes > 0) {
+      return `${minutes}m ago`;
+    } else {
+      return 'Just now';
+    }
+  } catch {
+    // Handle any unexpected errors in date formatting
+    return 'Recently';
   }
 }
 
@@ -40,17 +51,51 @@ export function formatRelativeTime(timestamp: number): string {
  * @param timestamp - Unix timestamp in milliseconds
  * @returns Formatted date/time string
  */
-export function formatTimestamp(timestamp: number): string {
+export function formatTimestamp(timestamp: number | string | Date | undefined): string {
   if (!timestamp) return '';
   
-  const date = new Date(timestamp);
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  try {
+    // Convert to date if it's a number or string
+    const date = typeof timestamp === 'number' || typeof timestamp === 'string' 
+      ? new Date(timestamp) 
+      : timestamp;
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return ''; // Return empty string for invalid dates
+    }
+    
+    // Format the time
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (error) {
+    console.error('Error formatting timestamp:', error);
+    return '';
+  }
+}
+
+/**
+ * Format a timestamp as a full date and time
+ * @param timestamp - Unix timestamp in milliseconds
+ * @returns Formatted date/time string
+ */
+export function formatFullDateTime(timestamp: number | string | Date): string {
+  if (!timestamp) return '';
+  
+  try {
+    const date = typeof timestamp === 'number' || typeof timestamp === 'string'
+      ? new Date(timestamp)
+      : timestamp;
+      
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -62,4 +107,72 @@ export function formatTimestamp(timestamp: number): string {
 export function truncateString(str: string, maxLength: number): string {
   if (!str || str.length <= maxLength) return str;
   return `${str.slice(0, maxLength)}...`;
+}
+
+/**
+ * Find the most relevant timestamp for a conversation
+ * @param conversation - The conversation to get timestamp from
+ * @returns timestamp in milliseconds
+ */
+export function getConversationTimestamp(conversation: Conversation): number {
+  try {
+    // Try different properties in order of preference
+    if (conversation?.lastUpdated) {
+      return conversation.lastUpdated;
+    }
+    
+    if (conversation?.updatedAt) {
+      const updatedAt = conversation.updatedAt;
+      if (typeof updatedAt === 'string' || updatedAt instanceof Date) {
+        return new Date(updatedAt).getTime();
+      } else if (typeof updatedAt === 'number') {
+        return updatedAt;
+      }
+    }
+    
+    if (conversation?.createdAt) {
+      const createdAt = conversation.createdAt;
+      if (typeof createdAt === 'string' || createdAt instanceof Date) {
+        return new Date(createdAt).getTime();
+      } else if (typeof createdAt === 'number') {
+        return createdAt;
+      }
+    }
+    
+    // Fall back to now
+    return Date.now();
+  } catch {
+    // Handle any unexpected errors
+    return Date.now();
+  }
+}
+
+/**
+ * Generate a title for a conversation
+ * @param conversation - The conversation to generate title for
+ * @returns A title string
+ */
+export function getConversationTitle(conversation: Conversation): string {
+  try {
+    // If we have a title, use it
+    if (conversation?.title) {
+      return conversation.title;
+    }
+    
+    // Try to find first user message to use as title
+    if (conversation?.messages && conversation.messages.length > 0) {
+      const firstUserMessage = conversation.messages.find(m => m.role === 'user');
+      if (firstUserMessage?.content) {
+        const content = firstUserMessage.content.trim();
+        // Truncate if too long
+        return content.length > 30 ? `${content.substring(0, 30)}...` : content;
+      }
+    }
+    
+    // Default fallback
+    return 'New Conversation';
+  } catch {
+    // Handle any unexpected errors
+    return 'New Conversation';
+  }
 } 

@@ -28,7 +28,7 @@ export function isValidMessage(message: Partial<Message>): boolean {
  * @param value - Value to check
  * @returns Boolean indicating if the value is a valid number
  */
-export function isValidNumber(value: any): boolean {
+export function isValidNumber(value: unknown): boolean {
   if (typeof value === 'number') return !isNaN(value);
   if (typeof value === 'string') return !isNaN(Number(value));
   return false;
