@@ -10,11 +10,13 @@ import {
   BadRequestException,
   Headers,
   Patch,
-  ValidationPipe
+  ValidationPipe,
+  Inject
 } from '@nestjs/common';
 import { ConversationService } from '../shared/conversation.service';
 import { UserService } from '../shared/user.service';
 import { MessageRole } from '../shared/models';
+import { OrchestratorService } from './orchestrator.service';
 
 class CreateConversationDto {
   title?: string;
@@ -36,6 +38,7 @@ export class ConversationController {
   constructor(
     private readonly conversationService: ConversationService,
     private readonly userService: UserService,
+    private readonly orchestratorService: OrchestratorService,
   ) {}
 
   private getUserIdFromHeader(userIdHeader: string): string {
@@ -155,10 +158,10 @@ export class ConversationController {
   }
 
   @Post(':id/messages')
-  addMessage(
+  async addMessage(
     @Param('id') id: string,
     @Headers('x-user-id') userIdHeader: string,
-    @Body() body: any, // Change to accept any payload format
+    @Body() body: any, // Accept any payload format
   ) {
     // Log the raw body to see what's coming in
     console.log('Received raw body:', {
@@ -220,6 +223,7 @@ export class ConversationController {
     }
     
     try {
+      // 1. First save the message to the conversation
       const message = this.conversationService.addMessage(
         id,
         content,
@@ -230,6 +234,34 @@ export class ConversationController {
         throw new Error('Failed to add message to conversation');
       }
       
+      // 2. Then pass the message content to the orchestrator for processing
+      this.logger.log(`Processing message with orchestrator: ${content}`);
+      
+      // NOTE: This is asynchronous - we don't await the result since we want to 
+      // return quickly to the user. The orchestrator will save its response separately.
+      this.orchestratorService.handleRequest({
+        query: content,
+        conversationId: id,
+        userId
+      }).then(response => {
+        this.logger.log(`Orchestrator response for message: ${JSON.stringify(response)}`);
+        
+        // Success case - save the assistant's response to the conversation
+        if (response.type === 'success' || response.type === 'error') {
+          // Add assistant's response to the conversation
+          const assistantMessage = this.conversationService.addMessage(
+            id,
+            response.message,
+            'assistant'
+          );
+          
+          this.logger.log('Added assistant response to conversation:', assistantMessage);
+        }
+      }).catch(error => {
+        this.logger.error('Error processing message with orchestrator:', error);
+      });
+      
+      // 3. Return the user's message immediately, don't wait for orchestrator
       return message;
     } catch (error) {
       console.error('Error in addMessage:', error);
