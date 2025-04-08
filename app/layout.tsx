@@ -2,12 +2,9 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ThemeRegistry from "@/components/ThemeRegistry/ThemeRegistry";
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import Providers from "./Providers";
 
 const inter = Inter({ subsets: ["latin"] });
-
-// Create a client
-const queryClient = new QueryClient();
 
 export const metadata: Metadata = {
   title: "Personal AI V1",
@@ -22,9 +19,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <QueryClientProvider client={queryClient}>
+        <Providers>
           <ThemeRegistry>{children}</ThemeRegistry>
-        </QueryClientProvider>
+        </Providers>
       </body>
     </html>
   );

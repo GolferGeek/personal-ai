@@ -27,6 +27,7 @@ export interface ConversationState {
   sendAgentParameters: (agentId: string, parameters: Record<string, any>) => Promise<void>;
   clearParametersNeeded: () => void;
   setError: (error: string | null) => void;
+  setMessages: (messages: Message[]) => void;
 }
 
 export const useConversationStore = create<ConversationState>((set, get) => ({
@@ -286,5 +287,9 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
 
   setError: (error: string | null) => {
     set({ error });
+  },
+
+  setMessages: (messages: Message[]) => {
+    set({ messages });
   },
 })); 

@@ -40,8 +40,8 @@ export default function Home() {
       
       if (messagesChanged) {
         console.log('Updating store with new messages from React Query');
-        // Just update the store's messages without triggering a load
-        store.messages = messages;
+        // Use set function to update store messages
+        store.setMessages(messages);
       }
     }
   }, [messages, currentConversationId, store]);
