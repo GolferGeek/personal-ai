@@ -17,44 +17,42 @@ function getForwardedHeaders(req: NextRequest): HeadersInit {
   return headers;
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(
+  req: NextRequest,
+  context: { params: { id: string } }
+) {
   try {
+    const { params } = context;
+    const id = params.id;
+    
     const body = await req.json();
     const headers = getForwardedHeaders(req);
     
-    // Log request for debugging
-    console.log('POST /api/orchestrate', {
-      body,
+    // Log the request for debugging
+    console.log(`POST request to /api/conversations/${id}/agent-parameters`, { 
+      body, 
       headers: Object.fromEntries(Object.entries(headers))
     });
     
-    // Make sure we have all parameters needed for the orchestrator
-    const payload = {
-      ...body
-    };
-    
-    // If this is an agent parameter request, add input and conversationId if not present
-    if (body.agentId && body.parameters) {
-      if (!payload.input) {
-        payload.input = `Running ${body.agentId} agent with parameters`;
-      }
-    }
-    
+    // Forward to orchestrator endpoint since this is a custom endpoint
     const response = await fetch(`${BACKEND_URL}/api/orchestrate`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...body,
+        conversationId: id
+      }),
     });
     
     if (!response.ok) {
-      console.error(`Error response from orchestrator: ${response.status} ${response.statusText}`);
+      console.error(`Error response from agent-parameters endpoint: ${response.status} ${response.statusText}`);
       
-      // Try to get error details
+      // Try to get more error details
       try {
         const errorText = await response.text();
         console.error('Error details:', errorText);
       } catch (e) {
-        console.error('Could not get error text');
+        console.error('Could not read error details');
       }
       
       return NextResponse.json(
@@ -64,10 +62,9 @@ export async function POST(req: NextRequest) {
     }
     
     const data = await response.json();
-    console.log('Orchestrator success response:', data);
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error proxying to orchestrator endpoint:', error);
+    console.error('Error proxying to agent-parameters endpoint:', error);
     return NextResponse.json(
       { error: 'Failed to connect to backend service' },
       { status: 500 }

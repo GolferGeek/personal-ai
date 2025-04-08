@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const BACKEND_URL = 'http://localhost:3001';
 
 // Helper function to forward headers
 function getForwardedHeaders(req: NextRequest): HeadersInit {
@@ -19,11 +19,14 @@ function getForwardedHeaders(req: NextRequest): HeadersInit {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
+    const id = params.id;
+    
     const headers = getForwardedHeaders(req);
-    const response = await fetch(`${BACKEND_URL}/api/conversations/${params.id}`, {
+    const response = await fetch(`${BACKEND_URL}/api/conversations/${id}`, {
       headers,
     });
     
@@ -47,11 +50,14 @@ export async function GET(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
+    const id = params.id;
+    
     const headers = getForwardedHeaders(req);
-    const response = await fetch(`${BACKEND_URL}/api/conversations/${params.id}`, {
+    const response = await fetch(`${BACKEND_URL}/api/conversations/${id}`, {
       method: 'DELETE',
       headers,
     });
@@ -76,13 +82,16 @@ export async function DELETE(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
+    const id = params.id;
+    
     const body = await req.json();
     const headers = getForwardedHeaders(req);
     
-    const response = await fetch(`${BACKEND_URL}/api/conversations/${params.id}`, {
+    const response = await fetch(`${BACKEND_URL}/api/conversations/${id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify(body),

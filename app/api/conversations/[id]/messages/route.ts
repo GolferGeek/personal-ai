@@ -19,15 +19,23 @@ function getForwardedHeaders(req: NextRequest): HeadersInit {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
+    const id = params.id; // Explicitly extract the ID
+    
     const headers = getForwardedHeaders(req);
-    const response = await fetch(`${BACKEND_URL}/api/conversations/${params.id}/messages`, {
+    
+    // Log the request for debugging
+    console.log(`GET request to /api/conversations/${id}/messages`);
+    
+    const response = await fetch(`${BACKEND_URL}/api/conversations/${id}/messages`, {
       headers,
     });
     
     if (!response.ok) {
+      console.error(`Error response from messages endpoint: ${response.status} ${response.statusText}`);
       return NextResponse.json(
         { error: `Backend error: ${response.statusText}` },
         { status: response.status }
@@ -47,19 +55,38 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
+    const id = params.id; // Explicitly extract the ID
+    
     const body = await req.json();
     const headers = getForwardedHeaders(req);
     
-    const response = await fetch(`${BACKEND_URL}/api/conversations/${params.id}/messages`, {
+    // Log the request for debugging
+    console.log(`POST request to /api/conversations/${id}/messages`, { 
+      body, 
+      headers: Object.fromEntries(Object.entries(headers))
+    });
+    
+    const response = await fetch(`${BACKEND_URL}/api/conversations/${id}/messages`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
     });
     
     if (!response.ok) {
+      console.error(`Error response from messages endpoint: ${response.status} ${response.statusText}`);
+      
+      // Try to get more error details
+      try {
+        const errorText = await response.text();
+        console.error('Error details:', errorText);
+      } catch (e) {
+        console.error('Could not read error details');
+      }
+      
       return NextResponse.json(
         { error: `Backend error: ${response.statusText}` },
         { status: response.status }
